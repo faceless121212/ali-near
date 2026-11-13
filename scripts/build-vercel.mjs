@@ -1,7 +1,7 @@
 // Builds the Vercel deployment with the Build Output API (.vercel/output):
 //   static/                 web/ (landing page, app page and its bundle, images)
 //   functions/index.func/   the whole app bundled into one Node function
-//   config.json             /app → app.html, static files first, everything else → the function
+//   config.json             / → index.html, /app → app.html, static files first, everything else → the function
 // Run by Vercel through vercel.json ("buildCommand"); locally: npm run build:vercel
 import { build } from "esbuild";
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -39,7 +39,12 @@ writeFileSync(
   JSON.stringify(
     {
       version: 3,
-      routes: [{ src: "^/app/?$", dest: "/app.html" }, { handle: "filesystem" }, { src: "^/(.*)$", dest: "/index" }],
+      routes: [
+        { src: "^/$", dest: "/index.html" },
+        { src: "^/app/?$", dest: "/app.html" },
+        { handle: "filesystem" },
+        { src: "^/(.*)$", dest: "/index" },
+      ],
     },
     null,
     2,
