@@ -31,12 +31,13 @@ The app is a guided playground. A numbered checklist at the top says what to do 
 
 Three attacks show where each one is stopped. *Fake prompt*: a poisoned News answer tells the agent to pay `drainer`. *Drain all*: the agent calls `pay` for the whole balance. *Spam 30 calls*: a runaway loop on the priciest allowed API.
 
-It has two modes:
+It has two modes, switched at the top. A **How it works** guide (and a **?** next to every panel) explains each part in plain language, and every run starts with a one-line summary of what happened and why.
 
 | Mode | What it is |
 |---|---|
 | **Practice** | A shared in-memory "Marketing budget" (`marketing.acme.near`, 5 USDC). Instant, nothing to set up. It applies the same rules, in the same order, as the contracts (`src/ledger/mock.ts`). |
-| **My NEAR wallet** | Your own budget on NEAR testnet. Connect **MyNearWallet** or **Meteor** with any testnet account, then: **(1)** create your budget, signing once to get 5 test USDC from the hub's faucet; **(2)** give the agent a key, a function-call key that you add to your own account and that can call only `pay` on the Firewall Hub; **(3)** call APIs and run the attacks. Every rule change (limits, allowed APIs, pause, new day) is a transaction you sign. Every payment is a real `pay` transaction, refused by the contract when it breaks a rule. |
+| **My wallet → Demo wallet** | The full owner flow, simulated and instant: connect in one click (you get an account like `you-7k2p.demo.near`), **(1)** create your budget, **(2)** give the agent a pay-only key, **(3)** call APIs and run the attacks. Each owner action opens a wallet-style approval popup (Approve / Reject). Budgets live on the server's in-memory ledger (`src/app/demo.ts`). |
+| **My wallet → Real NEAR testnet wallet** | The same steps on NEAR testnet. Connect **MyNearWallet** or **Meteor** with any testnet account, then: **(1)** create your budget, signing once to get 5 test USDC from the hub's faucet; **(2)** give the agent a key, a function-call key that you add to your own account and that can call only `pay` on the Firewall Hub; **(3)** call APIs and run the attacks. Every rule change (limits, allowed APIs, pause, new day) is a transaction you sign. Every payment is a real `pay` transaction, refused by the contract when it breaks a rule. |
 
 Wallet mode uses the public deployment in [`testnet.json`](testnet.json), which holds no secrets, so it works from a fresh clone. The agent keys the server creates for visitors are stored in `data/agent-keys.json` (gitignored). You only need a little testnet NEAR for gas; new testnet accounts in MyNearWallet and Meteor come with some. Weather and Maps return live data from Open-Meteo, falling back to sample data offline; the other APIs return sample data.
 
@@ -47,6 +48,8 @@ Wallet mode uses the public deployment in [`testnet.json`](testnet.json), which 
 | `PATCH /api/practice/policy`, `POST /api/practice/new-day` | Practice owner controls |
 | `POST /api/{practice \| testnet/:account}/call` | Agent: `{ api, q }`. Returns `{ ok, short, steps[], result, tx }` |
 | `POST /api/{practice \| testnet/:account}/attack` | Agent: `{ kind: "inject" \| "drain" \| "loop" }` |
+| `GET /api/demo/:account/state`, `POST /api/demo/:account/sign` | Demo wallet: state, and an approved owner action `{ method, args }` (`create_vault`, `add_key`, `set_limits`, `add_payee`, `remove_payee`, `set_paused`, `reset_day`, `faucet`) |
+| `POST /api/demo/:account/{call \| attack}` | Agent, paying from the demo budget |
 | `GET /api/testnet/:account/state` | Your hub budget, whether the agent's key is added, activity |
 | `POST /api/testnet/:account/agent-key` | The public key to add to your account (`pay` on the hub only) |
 

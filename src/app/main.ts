@@ -3,6 +3,7 @@
 // (it is committed, so a fresh clone can use the public testnet deployment).
 import { USDC } from "../api.js";
 import { MockLedger } from "../ledger/mock.js";
+import { DemoWallets } from "./demo.js";
 import { buildMarket } from "./market.js";
 import { createApp } from "./server.js";
 import { AgentKeys, Hub, loadTestnetConfig } from "./testnet.js";
@@ -25,7 +26,9 @@ ledger.createVault(vault, {
 const config = loadTestnetConfig();
 const hub = config ? new Hub(config, new AgentKeys()) : undefined;
 
-createApp({ practice: { ledger, wallet: new MockWallet(ledger, vault), market, asset }, hub }).listen(port, () => {
+const demo = new DemoWallets(ledger, market.apis.map((a) => a.account));
+
+createApp({ practice: { ledger, wallet: new MockWallet(ledger, vault), market, asset }, hub, demo }).listen(port, () => {
   console.log(`Ali is running at http://localhost:${port}/app`);
   console.log(hub ? `Wallet mode: NEAR ${config!.network}, hub ${config!.hub}` : "Wallet mode is off (no testnet.json)");
 });

@@ -12,13 +12,16 @@ import { USDC } from "../api.js";
 import type { Ledger } from "../ledger/types.js";
 import { runCall, runDirectPay, type AgentOptions, type Budget, type Run } from "./agent.js";
 import { buildMarket, createMarket, type Market } from "./market.js";
+import { DEMO_HUB, type DemoWallets } from "./demo.js";
 import type { Hub } from "./testnet.js";
 import type { Wallet } from "./wallet.js";
 
 export interface AppOptions {
   practice: { ledger: Ledger; wallet: Wallet; market: Market; asset: string };
-  /** Wallet mode; off when there is no testnet.json. */
+  /** Wallet mode on NEAR testnet; off when there is no testnet.json. */
   hub?: Hub;
+  /** Wallet mode with a simulated wallet on the practice ledger. */
+  demo?: DemoWallets;
   /** Folder with the pages and assets. Defaults to ../../web. */
   webDir?: string;
 }
@@ -37,7 +40,7 @@ const LIMITS = { perTxMax: USDC(1), dailyMax: USDC(5) };
 const fmt = (units: bigint) => (Number(units) / 1_000_000).toFixed(2);
 const ACCOUNT = /^(?=.{2,64}$)[a-z0-9]+([-_][a-z0-9]+)*(\.[a-z0-9]+([-_][a-z0-9]+)*)*$/;
 
-export function createApp({ practice, hub, webDir }: AppOptions) {
+export function createApp({ practice, hub, demo, webDir }: AppOptions) {
   const app = express();
   app.use(express.json());
   app.use("/market", createMarket({ ledger: practice.ledger, asset: practice.asset, market: practice.market }));
@@ -83,7 +86,7 @@ export function createApp({ practice, hub, webDir }: AppOptions) {
   });
 
   app.get("/api/config", (_req, res) => {
-    res.json({ testnet: hub ? hub.config : null });
+    res.json({ testnet: hub ? hub.config : null, demo: Boolean(demo) });
   });
 
   // ---------- practice ----------
@@ -155,14 +158,73 @@ export function createApp({ practice, hub, webDir }: AppOptions) {
     handle((req) => serial(async () => ({ ...(await attack(req, "practice", "/market", market, practiceAgent)), state: await practiceState() }))),
   );
 
+  const account = (req: Request) => {
+    const id = String(req.params.account ?? "");
+    if (!ACCOUNT.test(id)) throw Object.assign(new Error("invalid account id"), { status: 400 });
+    return id;
+  };
+
+  // ---------- demo wallet: wallet mode, simulated ----------
+
+  if (demo) {
+    const demoState = async (id: string) => {
+      const view = demo.view(id);
+      return {
+        mode: "demo",
+        network: practice.ledger.network,
+        vault: id,
+        hub: DEMO_HUB,
+        explorer: null,
+        budget: view.budget && { ...numbers(view.budget), faucetReady: view.budget.faucetReady },
+        agentKey: { publicKey: view.keyAdded ? "ed25519:demo-agent-key" : null, added: view.keyAdded },
+        apis: apisOf(market),
+        activity: feed(`demo:${id}`),
+      };
+    };
+    const demoAgent = (id: string) => async (): Promise<AgentOptions> => {
+      const { budget, keyAdded } = demo.view(id);
+      if (!budget) throw Object.assign(new Error("create your budget first"), { status: 409 });
+      if (!keyAdded) throw Object.assign(new Error("give the agent its key first"), { status: 409 });
+      return { ledger: practice.ledger, vault: id, asset: practice.asset, budget, checksBalance: true };
+    };
+
+    app.get("/api/demo/:account/state", handle((req) => demoState(account(req))));
+
+    // The visitor approved a transaction in the simulated wallet.
+    app.post(
+      "/api/demo/:account/sign",
+      handle((req) =>
+        serial(async () => {
+          const id = account(req);
+          const method = String(req.body?.method ?? "");
+          const label = String(req.body?.label ?? method).slice(0, 80);
+          const tx = demo.sign(id, method, req.body?.args ?? {});
+          log(`demo:${id}`, { kind: "ok", tag: "Signed", text: label, why: "In your demo wallet", tx });
+          return { tx, state: await demoState(id) };
+        }),
+      ),
+    );
+
+    app.post(
+      "/api/demo/:account/call",
+      handle((req) => {
+        const id = account(req);
+        return serial(async () => ({ ...(await call(req, `demo:${id}`, "/market", market, demoAgent(id))), state: await demoState(id) }));
+      }),
+    );
+
+    app.post(
+      "/api/demo/:account/attack",
+      handle((req) => {
+        const id = account(req);
+        return serial(async () => ({ ...(await attack(req, `demo:${id}`, "/market", market, demoAgent(id))), state: await demoState(id) }));
+      }),
+    );
+  }
+
   // ---------- testnet: the visitor's own wallet ----------
 
   if (hub && hubMarket) {
-    const account = (req: Request) => {
-      const id = String(req.params.account ?? "");
-      if (!ACCOUNT.test(id)) throw Object.assign(new Error("invalid account id"), { status: 400 });
-      return id;
-    };
     const testnetState = async (id: string) => {
       const [budget, added] = await Promise.all([hub.budget(id), hub.agentKeyAdded(id)]);
       return {

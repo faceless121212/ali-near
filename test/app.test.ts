@@ -2,6 +2,7 @@ import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { USDC } from "../src/api.js";
+import { DemoWallets } from "../src/app/demo.js";
 import { buildMarket } from "../src/app/market.js";
 import { createApp } from "../src/app/server.js";
 import { MockWallet } from "../src/app/wallet.js";
@@ -24,7 +25,8 @@ beforeEach(async () => {
     allowlist: market.apis.filter((a) => a.allowed).map((a) => a.account),
     paused: false,
   });
-  server = createApp({ practice: { ledger, wallet: new MockWallet(ledger, VAULT), market, asset: ASSET } }).listen(0);
+  const demo = new DemoWallets(ledger, market.apis.map((a) => a.account));
+  server = createApp({ practice: { ledger, wallet: new MockWallet(ledger, VAULT), market, asset: ASSET }, demo }).listen(0);
   await new Promise((r) => server.once("listening", r));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });
@@ -46,7 +48,7 @@ describe("Ali app", () => {
   });
 
   it("reports wallet mode as off without testnet.json", async () => {
-    expect(await (await fetch(base + "/api/config")).json()).toEqual({ testnet: null });
+    expect(await (await fetch(base + "/api/config")).json()).toEqual({ testnet: null, demo: true });
   });
 
   it("marketplace APIs answer 402 without payment", async () => {
@@ -112,5 +114,38 @@ describe("Ali app", () => {
     const res = await fetch(base + "/api/practice/call", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "unknown API" });
+  });
+
+  it("demo wallet walks the five steps: connect, budget, key, call, attack", async () => {
+    const id = "you-test.demo.near";
+    const allowlist = ["weather-api.near", "news-api.near"];
+    let st = await (await fetch(`${base}/api/demo/${id}/state`)).json();
+    expect(st.budget).toBeNull();
+    // No budget, no key: the agent can't pay.
+    expect((await fetch(`${base}/api/demo/${id}/call`, { method: "POST", headers: { "Content-Type": "application/json" }, body: '{"api":"weather"}' })).status).toBe(409);
+
+    st = (await send(`/api/demo/${id}/sign`, { method: "create_vault", args: { per_tx_max: "100000", daily_max: "200000", allowlist }, label: "Created" })).state;
+    expect(st.budget.balance).toBe(5_000_000);
+    expect(st.budget.faucetReady).toBe(false);
+    expect((await fetch(`${base}/api/demo/${id}/call`, { method: "POST", headers: { "Content-Type": "application/json" }, body: '{"api":"weather"}' })).status).toBe(409);
+
+    st = (await send(`/api/demo/${id}/sign`, { method: "add_key" })).state;
+    expect(st.agentKey.added).toBe(true);
+
+    const paid = await send(`/api/demo/${id}/call`, { api: "weather" });
+    expect(paid.ok).toBe(true);
+    expect(keys(paid)).toEqual(["request", "quote", "checks", "pay", "verify", "answer"]);
+    expect(paid.state.budget.balance).toBe(4_990_000);
+
+    const drain = await send(`/api/demo/${id}/attack`, { kind: "drain" });
+    expect(drain.code).toBe("ERR_PER_TX_LIMIT");
+    const inject = await send(`/api/demo/${id}/attack`, { kind: "inject" });
+    expect(inject.code).toBe("ERR_PAYEE_NOT_ALLOWED");
+
+    await send(`/api/demo/${id}/sign`, { method: "set_paused", args: { paused: true } });
+    expect((await send(`/api/demo/${id}/call`, { api: "weather" })).code).toBe("ERR_PAUSED");
+    // The shared practice wallet is untouched.
+    expect((await (await fetch(base + "/api/practice/state")).json()).budget.balance).toBe(5_000_000);
+    expect((await send(`/api/demo/${id}/sign`, { method: "create_vault", args: {} })).error).toMatch(/ERR_VAULT_EXISTS/);
   });
 });
