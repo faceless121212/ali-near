@@ -565,7 +565,7 @@ function connect() {
   $("pick-near").disabled = !modal;
   $("pick-near-text").textContent = modal
     ? "MyNearWallet or Meteor. Needs a free testnet account. Every step is a real testnet transaction."
-    : "Not available on this server (testnet.json is missing or the wallet selector didn't load).";
+    : "Not turned on for this server. Use the demo wallet, or run the app from GitHub to try a real wallet.";
   $("pick-demo").disabled = !hasDemo;
   $("chooser").showModal();
 }

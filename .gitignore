@@ -6,3 +6,4 @@ contracts/*/target
 .playwright-mcp
 .DS_Store
 data/
+.vercel

@@ -55,6 +55,15 @@ Wallet mode uses the public deployment in [`testnet.json`](testnet.json), which 
 
 After changing `web-src/app.js`, run `npm run build:web`. The bundle in `web/` is committed, so `npm start` needs no build step.
 
+## Deploy to Vercel
+
+The repo deploys as is: `vercel.json` runs `npm run build:vercel`, which writes `.vercel/output` (Vercel's Build Output API). The pages in `web/` become static files, and the whole app is bundled into one Node function for `/api/*`, `/market/*` and `/testnet/market/*`.
+
+1. In Vercel, **Add New → Project**, import the GitHub repo, keep the defaults (Framework Preset: *Other*, root directory: the repo root), and deploy.
+2. **To also turn on the real testnet wallet,** add an environment variable `AGENT_KEY_SECRET` set to a long random string (for example the output of `openssl rand -hex 32`), then redeploy. Agent keys are derived from it, so nothing has to be written to disk. Keep it secret, and don't change it later: the keys visitors added to their accounts were derived from it. Without it, Practice and the Demo wallet work, and the real wallet option says it's off.
+
+Practice and demo budgets live in the function's memory, so they start over when Vercel starts a new instance. Wallet mode keeps its state on chain. To check the build locally: `npm run build:vercel`.
+
 ## Terminal demo (offline, about 10 seconds)
 
 ```bash
@@ -73,7 +82,7 @@ The demo starts a paid API and an agent against an in-memory ledger that applies
 | 6 | Owner flips the kill switch | 🛡 `ERR_PAUSED` |
 
 ```bash
-npm test          # 54 tests: policy, payment verification, Near6 (x402 v1 + v2) end to end, the app, the MCP server
+npm test          # 57 tests: policy, payment verification, Near6 (x402 v1 + v2) end to end, the app, the MCP server
 npm run typecheck
 ```
 
@@ -168,6 +177,7 @@ The server trusts only the **token contract's** NEP-141 `ft_transfer` event, nev
 | `src/near6/` | Wire types (x402 v1 and v2), `paywall()` Express middleware, payment verification |
 | `src/mcp/` | The MCP server (`budget`, `list_apis`, `call_api`, `fetch_paid`) and its stdio entry |
 | `src/app/demo.ts` | The simulated demo wallet |
+| `src/app/build.ts`, `src/app/vercel.ts`, `scripts/build-vercel.mjs`, `vercel.json` | One app factory for `npm start` and the Vercel function, and the Vercel build |
 | `src/client/paying-fetch.ts` | `fetch` wrapper that handles `402 → pay → retry` |
 | `src/ledger/mock.ts` | In-memory token and vaults for practice mode, the demo and tests |
 | `src/ledger/near.ts` | Real NEAR: calls `pay` with near-api-js and verifies receipts via RPC |

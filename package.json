@@ -15,7 +15,8 @@
     "build:contracts": "sh scripts/build-contracts.sh",
     "deploy:testnet": "tsx scripts/deploy-testnet.ts",
     "deploy:hub": "tsx scripts/deploy-hub.ts",
-    "build:web": "esbuild web-src/app.js --bundle --format=esm --minify --platform=browser --target=es2022 --define:global=globalThis --outfile=web/app.js"
+    "build:web": "esbuild web-src/app.js --bundle --format=esm --minify --platform=browser --target=es2022 --define:global=globalThis --outfile=web/app.js",
+    "build:vercel": "node scripts/build-vercel.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",

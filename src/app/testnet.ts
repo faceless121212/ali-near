@@ -2,9 +2,10 @@
 // The visitor signs the rules in their NEAR wallet. The server only holds the
 // agent's keys: function-call keys the visitor adds to their own account, which
 // can call `pay` on the hub and nothing else.
+import { createHmac, createPrivateKey, createPublicKey } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { KeyPair, providers } from "near-api-js";
+import { KeyPair, providers, utils } from "near-api-js";
 import { NearLedger } from "../ledger/near.js";
 import type { Budget } from "./agent.js";
 
@@ -112,15 +113,27 @@ export class Hub {
 }
 
 /** Agent keys per NEAR account, kept in a local JSON file (gitignored). */
+/**
+ * The agent's key pair for each visitor account.
+ *
+ * With AGENT_KEY_SECRET set, keys are derived from it (HMAC-SHA256 of the account id
+ * as the ed25519 seed): nothing is stored, every server instance computes the same
+ * key, and it works on serverless hosts with a read-only disk (Vercel). Without it,
+ * keys are random and kept in data/agent-keys.json (mode 0600).
+ */
 export class AgentKeys {
   private keys: Record<string, string>;
 
-  constructor(private path = "data/agent-keys.json") {
-    this.keys = existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : {};
+  constructor(
+    private path = "data/agent-keys.json",
+    private secretKey = process.env.AGENT_KEY_SECRET,
+  ) {
+    this.keys = !secretKey && existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : {};
   }
 
   /** Returns the account's agent public key, creating the key pair on first use. */
   ensure(account: string): string {
+    if (this.secretKey) return this.publicKey(account)!;
     if (!this.keys[account]) {
       this.keys[account] = KeyPair.fromRandom("ed25519").toString();
       mkdirSync(dirname(this.path), { recursive: true });
@@ -130,11 +143,20 @@ export class AgentKeys {
   }
 
   publicKey(account: string) {
-    const secret = this.keys[account];
+    const secret = this.secret(account);
     return secret ? KeyPair.fromString(secret as `ed25519:${string}`).getPublicKey().toString() : undefined;
   }
 
-  secret(account: string) {
-    return this.keys[account];
+  secret(account: string): string | undefined {
+    return this.secretKey ? deriveKey(this.secretKey, account) : this.keys[account];
   }
+}
+
+/** ed25519 key pair from a 32-byte seed, in near-api-js's "ed25519:<base58 seed+public>" form. */
+export function deriveKey(secret: string, account: string): string {
+  const seed = createHmac("sha256", secret).update(`ali-agent-key:${account}`).digest();
+  const pkcs8 = Buffer.concat([Buffer.from("302e020100300506032b657004220420", "hex"), seed]);
+  const jwk = createPublicKey(createPrivateKey({ key: pkcs8, format: "der", type: "pkcs8" })).export({ format: "jwk" });
+  const pub = Buffer.from(jwk.x!, "base64url");
+  return `ed25519:${utils.serialize.base_encode(Buffer.concat([seed, pub]))}`;
 }

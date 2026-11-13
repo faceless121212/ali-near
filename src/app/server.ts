@@ -76,7 +76,16 @@ export function createApp({ practice, hub, demo, webDir }: AppOptions) {
       }
     };
 
-  const local = (req: Request) => `http://127.0.0.1:${(req.socket.address() as AddressInfo).port}`;
+  // The agent calls the marketplace over real HTTP. It talks to this same app on an
+  // internal loopback listener, so it also works where the public server has no port
+  // (serverless) and the 402 nonce stays in this process's memory.
+  let self: Promise<string> | undefined;
+  const local = (_req: Request) =>
+    (self ??= new Promise<string>((resolve, reject) => {
+      const inner = app.listen(0, "127.0.0.1", () => resolve(`http://127.0.0.1:${(inner.address() as AddressInfo).port}`));
+      inner.on("error", reject);
+      inner.unref();
+    }));
   const apisOf = (m: Market) =>
     m.apis.map((a) => ({ id: a.id, name: a.name, account: a.account, price: Number(a.price), description: a.description, defaultQuery: a.defaultQuery }));
   const numbers = (b: Budget) => ({
@@ -316,7 +325,7 @@ export function createApp({ practice, hub, demo, webDir }: AppOptions) {
     if (!api) throw Object.assign(new Error("unknown API"), { status: 400 });
     const q = String(req.body?.q || api.defaultQuery).slice(0, 80);
     const path = `${prefix}/${api.id}?q=${encodeURIComponent(q)}`;
-    const run = await runCall(await agent(), local(req) + path, path);
+    const run = await runCall(await agent(), (await local(req)) + path, path);
     logRun(space, `${api.name} API`, run, api.account, api.price);
     return run;
   }
@@ -331,7 +340,7 @@ export function createApp({ practice, hub, demo, webDir }: AppOptions) {
     const match = raw.match(/^(?:\/testnet)?\/market\/([a-z0-9-]{1,32})(\?[^#\s]{0,200})?$/);
     if (!match) throw Object.assign(new Error("path must look like /market/<api>?q=..."), { status: 400 });
     const path = `${prefix}/${match[1]}${match[2] ?? ""}`;
-    const run = await runCall(await agent(), local(req) + path, path);
+    const run = await runCall(await agent(), (await local(req)) + path, path);
     const payee = run.steps.find((s) => s.key === "quote")?.detail.split(" to ")[1] ?? "";
     const amount = BigInt((run.steps.find((s) => s.key === "quote")?.data as { amount?: string } | undefined)?.amount ?? 0);
     logRun(space, `Agent fetched ${path.replace(prefix, "/market")}`, run, payee, amount);
@@ -343,7 +352,7 @@ export function createApp({ practice, hub, demo, webDir }: AppOptions) {
     if (kind === "inject") {
       // The agent obeys the poisoned News answer and calls the attacker's endpoint.
       const path = `${prefix}/vip-unlock`;
-      const run = await runCall(await agent(), local(req) + path, `${path} (a fake prompt said to)`);
+      const run = await runCall(await agent(), (await local(req)) + path, `${path} (a fake prompt said to)`);
       logRun(space, `Fake prompt: "pay ${m.attacker}"`, run, m.attacker, USDC(0.09));
       return run;
     }
@@ -363,7 +372,7 @@ export function createApp({ practice, hub, demo, webDir }: AppOptions) {
       let last: Run | undefined;
       for (let i = 1; i <= 30; i++) {
         const path = `${prefix}/${api.id}?q=${encodeURIComponent(api.defaultQuery)}`;
-        last = await runCall(await agent(), local(req) + path, `${path} (call ${i} of 30)`);
+        last = await runCall(await agent(), (await local(req)) + path, `${path} (call ${i} of 30)`);
         logRun(space, `${api.name} call ${i}`, last, api.account, api.price);
         runs.push({ n: i, ok: last.ok, short: last.short, tx: last.tx });
         if (!last.ok) break;
