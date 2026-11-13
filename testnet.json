@@ -1,0 +1,8 @@
+{
+  "network": "testnet",
+  "rpcUrl": "https://test.rpc.fastnear.com",
+  "hub": "hub.ali-demo-70052.testnet",
+  "token": "usdc.ali-demo-70052.testnet",
+  "marketRoot": "ali-demo-70052.testnet",
+  "explorer": "https://testnet.nearblocks.io"
+}

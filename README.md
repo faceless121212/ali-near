@@ -11,29 +11,46 @@ AI agents are starting to pay for APIs, data and compute. Two problems come with
 
 Ali solves both. An API charges with one Express middleware. The agent pays from a **vault account** whose contract enforces a per-call cap, a daily budget, a payee allowlist and a kill switch. The agent's only key is a NEAR **function-call access key** restricted to the vault's `pay` method, so even a fully jailbroken agent can only do what the policy allows.
 
-## Run the app (no keys needed)
+## Run the app
 
 ```bash
 npm install
 npm start
 ```
 
-Open http://localhost:3000. You are the owner of the **Marketing budget** wallet (`marketing.acme.near`, 5 USDC):
+Open **http://localhost:3000/app**. No keys or setup needed. The landing page is at http://localhost:3000.
 
-- **API marketplace.** Eight paid APIs, each owned by its own NEAR account. Switch an API on to add it to the wallet's allowlist, then press **Call**: the server-side agent requests the API, gets `402 Payment Required`, pays through the wallet, retries with the proof and shows you the Near6 steps and the API's answer. Weather and Maps return live data from Open-Meteo (they fall back to sample data offline); the others return sample data.
-- **Limits.** Per-call and per-day sliders, **Pause** and **New day** change the wallet's policy.
-- **Attacks.** *Fake prompt* makes the agent obey a poisoned News response and pay `drainer.near`; *Drain all* calls `pay` for the whole balance; *Spam 30 calls* runs a loop. The wallet blocks each one, and the activity log shows why.
+The app is a guided playground. A numbered checklist at the top says what to do next, and every agent call fills a timeline with each step and its result:
 
-The app runs on an in-memory ledger that applies the same rules, in the same order, as the contract (`src/ledger/mock.ts`). Set `PORT` to change the port. Opened as a static file, the page falls back to a demo mode that runs the checks in the browser.
+1. **Agent asks the API** (`GET /market/weather?q=Kyiv`)
+2. **402 Payment Required**: the price, the payee and a one-time nonce
+3. **Firewall checks the rules**: wallet active, under the per-call limit, payee allowed, within today's budget (and enough money, in wallet mode), each ✓ or ✗
+4. **Wallet pays**: the transaction, linked to nearblocks in wallet mode
+5. **API checks the payment**: it finds the token transfer carrying its nonce
+6. **Agent gets the answer**: the API's JSON
+
+Three attacks show where each one is stopped. *Fake prompt*: a poisoned News answer tells the agent to pay `drainer`. *Drain all*: the agent calls `pay` for the whole balance. *Spam 30 calls*: a runaway loop on the priciest allowed API.
+
+It has two modes:
+
+| Mode | What it is |
+|---|---|
+| **Practice** | A shared in-memory "Marketing budget" (`marketing.acme.near`, 5 USDC). Instant, nothing to set up. It applies the same rules, in the same order, as the contracts (`src/ledger/mock.ts`). |
+| **My NEAR wallet** | Your own budget on NEAR testnet. Connect **MyNearWallet** or **Meteor** with any testnet account, then: **(1)** create your budget, signing once to get 5 test USDC from the hub's faucet; **(2)** give the agent a key, a function-call key that you add to your own account and that can call only `pay` on the Firewall Hub; **(3)** call APIs and run the attacks. Every rule change (limits, allowed APIs, pause, new day) is a transaction you sign. Every payment is a real `pay` transaction, refused by the contract when it breaks a rule. |
+
+Wallet mode uses the public deployment in [`testnet.json`](testnet.json), which holds no secrets, so it works from a fresh clone. The agent keys the server creates for visitors are stored in `data/agent-keys.json` (gitignored). You only need a little testnet NEAR for gas; new testnet accounts in MyNearWallet and Meteor come with some. Weather and Maps return live data from Open-Meteo, falling back to sample data offline; the other APIs return sample data.
 
 | Route | What it does |
 |---|---|
-| `GET /market/:api?q=` | A paid API behind the Near6 paywall (`weather`, `news`, `maps`, `translate`, `search`, `stocks`, `flights`, `images`) |
-| `GET /api/state` | Wallet balance, policy, spend today, marketplace and activity |
-| `PATCH /api/policy` | Owner: `{ perTxMax, dailyMax, paused, allow: { account, on } }` (micro-USDC) |
-| `POST /api/new-day` | Owner: reset today's spend |
-| `POST /api/call` | Agent: `{ api, q }`, pays over Near6 and returns the answer |
-| `POST /api/attack` | Agent: `{ kind: "inject" \| "drain" \| "loop" }` |
+| `GET /market/:api?q=`, `GET /testnet/market/:api?q=` | Paid APIs behind the Near6 paywall (`weather`, `news`, `maps`, `translate`, `search`, `stocks`, `flights`, `images`) |
+| `GET /api/practice/state` | Practice wallet: balance, policy, spend today, activity |
+| `PATCH /api/practice/policy`, `POST /api/practice/new-day` | Practice owner controls |
+| `POST /api/{practice \| testnet/:account}/call` | Agent: `{ api, q }`. Returns `{ ok, short, steps[], result, tx }` |
+| `POST /api/{practice \| testnet/:account}/attack` | Agent: `{ kind: "inject" \| "drain" \| "loop" }` |
+| `GET /api/testnet/:account/state` | Your hub budget, whether the agent's key is added, activity |
+| `POST /api/testnet/:account/agent-key` | The public key to add to your account (`pay` on the hub only) |
+
+After changing `web-src/app.js`, run `npm run build:web`. The bundle in `web/` is committed, so `npm start` needs no build step.
 
 ## Terminal demo (offline, about 10 seconds)
 
@@ -53,7 +70,7 @@ The demo starts a paid API and an agent against an in-memory ledger that applies
 | 6 | Owner flips the kill switch | 🛡 `ERR_PAUSED` |
 
 ```bash
-npm test          # 35 tests: policy, payment verification, Near6 end to end, the app
+npm test          # 39 tests: policy, payment verification, Near6 end to end, the app
 npm run typecheck
 ```
 
@@ -92,56 +109,61 @@ The server trusts only the **token contract's** NEP-141 `ft_transfer` event, nev
 
 | Path | What it is |
 |---|---|
-| `contracts/agent-firewall/` | Rust contract (near-sdk 5): `pay`, owner controls (`set_limits`, `add_payee`, `remove_payee`, `set_paused`, `reset_day`, `withdraw`), `get_policy` view, unit tests |
+| `contracts/agent-firewall/` | Rust contract (near-sdk 5), one vault per account: `pay`, owner controls (`set_limits`, `add_payee`, `remove_payee`, `set_paused`, `reset_day`, `withdraw`), `get_policy`, 9 unit tests |
+| `contracts/firewall-hub/` | The same firewall for many owners in one contract: a budget per NEAR account, the owner's own key signs the rules, the agent's key can call only `pay`, and a test-USDC faucet. 13 unit tests |
 | `contracts/test-usdc/` | NEP-141 test token (6 decimals) for testnet |
-| `src/app/` | The web app: server, marketplace, wallet (in memory or on NEAR) |
-| `web/` | The page the app serves |
-| `scripts/` | Contract build and testnet deploy |
+| `src/app/` | The app server: practice and wallet modes, the traced agent (`agent.ts`), the marketplace, the hub client (`testnet.ts`) |
+| `web/` | The landing page, the app page and its committed bundle |
+| `web-src/app.js` | The app's client: NEAR Wallet Selector, the guide, the run timeline |
+| `scripts/` | Contract build, testnet deploys (`deploy-testnet.ts`, `deploy-hub.ts`) and an end-to-end testnet check (`e2e-testnet.ts`) |
 | `src/policy.ts` | The same policy in TypeScript, used by the offline ledger and for error codes |
 | `src/near6/` | Wire types, `paywall()` Express middleware, payment verification |
 | `src/client/paying-fetch.ts` | `fetch` wrapper that handles `402 → pay → retry` |
-| `src/ledger/mock.ts` | In-memory token and vaults for the demo and tests |
-| `src/ledger/near.ts` | Real NEAR: calls `vault.pay` with near-api-js and verifies receipts via RPC |
-| `src/api.ts` | Sample paid API (`/weather` 0.01, `/research` 0.05, `/vip-unlock` the "attacker" route) |
-| `src/examples/` | Testnet server and agent |
+| `src/ledger/mock.ts` | In-memory token and vaults for practice mode, the demo and tests |
+| `src/ledger/near.ts` | Real NEAR: calls `pay` with near-api-js and verifies receipts via RPC |
+| `src/api.ts`, `src/examples/` | The minimal paid API and the two-process testnet example |
 
-## Run it on NEAR testnet
+## On NEAR testnet
 
-The same app runs against real contracts on NEAR testnet. A live deployment exists:
+The live deployment, all on testnet:
 
 | Account | What it is |
 |---|---|
-| [`ali-demo-70052.testnet`](https://testnet.nearblocks.io/address/ali-demo-70052.testnet) | Owner. Sets the wallet's rules |
-| [`budget.ali-demo-70052.testnet`](https://testnet.nearblocks.io/address/budget.ali-demo-70052.testnet) | The "Marketing budget" vault running the Agent Firewall. It has **no full-access key**; the agent's only key can call `pay` and nothing else |
-| [`usdc.ali-demo-70052.testnet`](https://testnet.nearblocks.io/address/usdc.ali-demo-70052.testnet) | Test USDC, a NEP-141 token with 6 decimals (`contracts/test-usdc`) |
+| [`hub.ali-demo-70052.testnet`](https://testnet.nearblocks.io/address/hub.ali-demo-70052.testnet) | **Firewall Hub**, used by the app's wallet mode. One budget per NEAR account, plus a faucet holding 10,000 test USDC |
+| [`usdc.ali-demo-70052.testnet`](https://testnet.nearblocks.io/address/usdc.ali-demo-70052.testnet) | Test USDC, a NEP-141 token with 6 decimals |
 | `weather-api.ali-demo-70052.testnet` … `images-api.ali-demo-70052.testnet` | One account per marketplace API; they receive the payments |
-| `drainer.ali-demo-70052.testnet` | The "attacker" the fake prompt tries to pay |
+| `drainer.ali-demo-70052.testnet` | The "attacker" that the fake prompt tries to pay |
+| [`budget.ali-demo-70052.testnet`](https://testnet.nearblocks.io/address/budget.ali-demo-70052.testnet) | A single-owner vault running `agent-firewall`, with **no full-access key**. Used by the two-process example |
+| [`ali-demo-70052.testnet`](https://testnet.nearblocks.io/address/ali-demo-70052.testnet) | The deployer |
 
-In testnet mode every **Call** is a real `pay` transaction from the vault, the server verifies the token's `ft_transfer` event over RPC before it answers, and the activity log links each payment to nearblocks. The attacks fail inside the contract with the same codes as offline (`ERR_PAYEE_NOT_ALLOWED`, `ERR_PER_TX_LIMIT`, `ERR_DAILY_LIMIT`, `ERR_PAUSED`). A paid call takes about 5 seconds; owner changes take 2 to 3.
+**How wallet mode keeps the agent boxed in.** The hub runs `pay` as the *caller*: it looks up the caller's budget and applies the caller's rules. The agent's key lives on your account and is a function-call key for `pay` on the hub only. It can't call `set_limits`, `add_payee` or anything else, can't call any other contract, and can't move NEAR. So the worst a fully jailbroken agent can do is spend within the rules you signed. Payments leave the hub as NEP-141 transfers with the Near6 nonce as memo, and the API verifies them on chain. The proof carries `from: hub` because the tokens leave the hub, not your account.
+
+To check wallet mode end to end without a browser, run `npx tsx scripts/e2e-testnet.ts` while `npm start` is running. It needs the deployer key in `.env`. The script creates a throwaway account, signs the budget and key like a wallet would, drives the app's API through a call and all three attacks, and then deletes the account.
 
 ### Deploy your own
 
-Prerequisites: a funded testnet account (about 5 NEAR covers everything), Rust with the `wasm32-unknown-unknown` target, and `wasm-opt` from [binaryen](https://github.com/WebAssembly/binaryen) (`brew install binaryen`).
+Prerequisites: a funded testnet account (about 8 NEAR covers everything), Rust with the `wasm32-unknown-unknown` target, and `wasm-opt` from [binaryen](https://github.com/WebAssembly/binaryen) (`brew install binaryen`).
 
 ```bash
-npm run build:contracts      # builds both contracts with --cfg near, shrinks them with wasm-opt
+npm run build:contracts      # builds the three contracts with --cfg near, shrinks them with wasm-opt
 cp .env.example .env         # set OWNER_ACCOUNT_ID and OWNER_PRIVATE_KEY
-npm run deploy:testnet       # creates the token, vault, API accounts and the agent key; fills in .env
-npm start                    # LEDGER=near is now set, so the app runs on testnet
+npm run deploy:testnet       # test USDC, the API accounts and a single-owner vault
+npm run deploy:hub           # the Firewall Hub and its faucet; writes testnet.json
+npm start
 ```
 
-`npm run deploy:testnet` is safe to re-run: it skips what already exists. It creates the vault, deploys the firewall, adds the agent's `pay`-only function-call key, then **deletes the vault's full-access key**, registers every account with the token and sends 5 USDC to the vault.
+Both deploy scripts are safe to re-run: they skip what already exists.
 
-Build note: near-sdk 5.30 reports `require!` messages to the chain only when compiled with `--cfg near` (which `cargo near build` sets). Without it, a rejected payment fails with a bare `unreachable` trap instead of `ERR_*`. `npm run build:contracts` sets the flag.
+Build note: near-sdk 5.30 reports `require!` messages to the chain only when compiled with `--cfg near`, which `cargo near build` sets. Without it, a rejected payment fails with a bare `unreachable` trap instead of `ERR_*`. `npm run build:contracts` sets the flag.
 
-For the demo, the server holds the owner's key so the page's owner controls work. In production the owner would sign `set_limits`, `add_payee` and the rest in their own wallet; the agent would still hold only the `pay` key.
-
-The older two-process example also works on testnet: `npm run server` (a paid API that verifies over RPC, needs `PAY_TO_ACCOUNT_ID`) and `npm run agent -- "/weather?city=Kyiv"`.
+The older two-process example also works on testnet: `npm run server` (a paid API that verifies over RPC; needs `PAY_TO_ACCOUNT_ID`) and `npm run agent -- "/weather?city=Kyiv"` (needs the single-owner vault's `VAULT_ACCOUNT_ID` and `AGENT_PRIVATE_KEY`).
 
 ## Limitations (honest status)
 
-- **Verified:** the web app in memory and on NEAR testnet (paid calls, all three attacks, pause, allowlist changes, new day, each payment checked on chain), the offline demo, 35 TypeScript tests, 9 contract unit tests and the typecheck.
-- **The owner key sits on the demo server** (see above). Fine for testnet, not for real money.
+- **Verified:** practice mode in the browser (calls, attacks, limits, pause, new day). Wallet mode end to end on testnet with a scripted wallet (budget, agent key, a paid call, all three attacks and pause, each checked on chain). The wallet chooser opening with MyNearWallet and Meteor. 39 TypeScript tests, 9 + 13 contract unit tests, the offline demo and the typecheck.
+- **Not verified by us:** signing in with a real MyNearWallet or Meteor account in the browser. That needs a person's wallet; the same transactions were sent by the scripted wallet.
+- **The agent keys sit on the app server** (`data/agent-keys.json`). That's the point of the design: the agent is a server process. Each key can only call `pay` on the hub and is capped by its gas allowance (0.25 NEAR). Remove it from your account any time in your wallet.
+- **No sign-in on the app's API.** Anyone who knows your account id can make the server's agent call APIs for you, but only within your rules and only to APIs you allowed. A production version would check a NEP-413 signed message first.
 - **Near6 is its own protocol, compatible with x402's message format.** The message format follows x402 (`402` body with `accepts`, plus `X-PAYMENT` / `X-PAYMENT-RESPONSE` headers). Settlement differs: the agent pays on-chain first and sends the tx hash, instead of the EVM "exact" scheme's signed authorization. Near6 isn't part of the upstream x402 spec.
 - **The server keeps nonces in memory,** so they reset on restart. Use Redis or similar for production.
 - **One token per vault.**

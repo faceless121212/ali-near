@@ -1,22 +1,25 @@
-// The Ali web app: serves the UI, the paid API marketplace, the owner's wallet
-// controls and an agent that buys from the marketplace over real Near6 (HTTP 402).
+// The Ali app server. Two ways to try the same agent:
+//
+//   practice  an in-memory wallet everyone shares; instant, no keys
+//   testnet   the visitor's own budget on the Firewall Hub, signed in their NEAR wallet
+//
+// Both run the agent over real Near6 (HTTP 402) against the paid marketplace and
+// return every step of each call.
+import type { AddressInfo } from "node:net";
 import { fileURLToPath } from "node:url";
-import express, { type Request } from "express";
+import express, { type NextFunction, type Request, type Response } from "express";
 import { USDC } from "../api.js";
-import { createPayingFetch, readSettlement } from "../client/paying-fetch.js";
 import type { Ledger } from "../ledger/types.js";
-import { FirewallError, type FirewallCode } from "../policy.js";
-import { createMarket, type Market } from "./market.js";
+import { runCall, runDirectPay, type AgentOptions, type Budget, type Run } from "./agent.js";
+import { buildMarket, createMarket, type Market } from "./market.js";
+import type { Hub } from "./testnet.js";
 import type { Wallet } from "./wallet.js";
 
 export interface AppOptions {
-  /** The agent's side: pays through the vault and verifies payments. */
-  ledger: Ledger;
-  /** The owner's side: reads and changes the vault's policy. */
-  wallet: Wallet;
-  market: Market;
-  asset: string;
-  /** Folder with index.html and assets. Defaults to ../../web. */
+  practice: { ledger: Ledger; wallet: Wallet; market: Market; asset: string };
+  /** Wallet mode; off when there is no testnet.json. */
+  hub?: Hub;
+  /** Folder with the pages and assets. Defaults to ../../web. */
   webDir?: string;
 }
 
@@ -30,233 +33,260 @@ interface Activity {
   tx?: string;
 }
 
-/** What the agent saw: `short` fits on a tile, `steps` is the Near6 handshake. */
-interface Outcome {
-  ok: boolean;
-  short: string;
-  result?: unknown;
-  steps: string[];
-}
-
 const LIMITS = { perTxMax: USDC(1), dailyMax: USDC(5) };
 const fmt = (units: bigint) => (Number(units) / 1_000_000).toFixed(2);
+const ACCOUNT = /^(?=.{2,64}$)[a-z0-9]+([-_][a-z0-9]+)*(\.[a-z0-9]+([-_][a-z0-9]+)*)*$/;
 
-export function createApp({ ledger, wallet, market, asset, webDir }: AppOptions) {
-  const { vault } = wallet;
+export function createApp({ practice, hub, webDir }: AppOptions) {
   const app = express();
   app.use(express.json());
-  app.use("/market", createMarket({ ledger, asset, market }));
+  app.use("/market", createMarket({ ledger: practice.ledger, asset: practice.asset, market: practice.market }));
+  const hubMarket = hub ? buildMarket(hub.config.marketRoot) : undefined;
+  if (hub && hubMarket) app.use("/testnet/market", createMarket({ ledger: hub.verifier(), asset: hub.config.token, market: hubMarket }));
 
-  // One wallet action at a time: on NEAR, parallel transactions from one key collide on nonces.
+  // Activity per wallet: "practice" or a NEAR account id.
+  const activity = new Map<string, Activity[]>();
+  let seq = 0;
+  const feed = (space: string) => activity.get(space) ?? [];
+  function log(space: string, entry: Omit<Activity, "id" | "at">) {
+    activity.set(space, [{ id: ++seq, at: Date.now(), ...entry }, ...feed(space)].slice(0, 50));
+  }
+  function logRun(space: string, text: string, run: Run, payee: string, amount: bigint) {
+    if (run.ok) log(space, { kind: "ok", tag: "Paid", text, why: `${fmt(amount)} USDC → ${payee}`, tx: run.tx });
+    else log(space, { kind: "no", tag: run.code ? "Blocked" : "Failed", text, why: run.steps.at(-1)?.detail ?? run.short });
+  }
+
+  // One payment at a time: parallel transactions from one key collide on nonces.
   let queue: Promise<unknown> = Promise.resolve();
   const serial = <T>(work: () => Promise<T>): Promise<T> => {
     const run = queue.then(work, work);
     queue = run.catch(() => {});
     return run;
   };
-
-  const activity: Activity[] = [];
-  let seq = 0;
-  function log(entry: Omit<Activity, "id" | "at">) {
-    activity.unshift({ id: ++seq, at: Date.now(), ...entry });
-    activity.length = Math.min(activity.length, 50);
-  }
-
-  async function state() {
-    const { balance, spentToday, policy } = await wallet.view();
-    return {
-      network: ledger.network,
-      asset,
-      vault,
-      explorer: wallet.explorer?.("") ?? null,
-      balance: Number(balance),
-      spentToday: Number(spentToday),
-      policy: {
-        perTxMax: Number(policy.perTxMax),
-        dailyMax: Number(policy.dailyMax),
-        allowlist: policy.allowlist,
-        paused: policy.paused,
-      },
-      apis: market.apis.map((a) => ({
-        id: a.id,
-        name: a.name,
-        account: a.account,
-        price: Number(a.price),
-        description: a.description,
-        defaultQuery: a.defaultQuery,
-      })),
-      activity,
-    };
-  }
-
-  // The agent: a fetch that answers 402s by paying through the firewall vault.
-  const agentFetch = (req: Request, steps: string[]) => {
-    const base = `http://127.0.0.1:${req.socket.localPort}`;
-    const fetchPaid = createPayingFetch({
-      ledger,
-      vault,
-      acceptAssets: [asset],
-      onPayment: ({ requirements, txHash }) => {
-        steps.push(`402: pay ${fmt(BigInt(requirements.maxAmountRequired))} USDC to ${requirements.payTo}`);
-        steps.push(`Paid through the wallet, tx ${txHash.slice(0, 10)}…`);
-      },
-    });
-    return (path: string) => fetchPaid(base + path);
-  };
-
-  async function callApi(req: Request, apiId: string, q: string | undefined, label: string): Promise<Outcome> {
-    const api = market.apis.find((a) => a.id === apiId);
-    if (!api) return { ok: false, short: "Unknown API", steps: [] };
-    const steps: string[] = [];
-    const path = `/market/${api.id}?q=${encodeURIComponent(q || api.defaultQuery)}`;
-    try {
-      const res = await agentFetch(req, steps)(path);
-      const body = await res.json();
-      if (!res.ok) {
-        log({ kind: "no", tag: "Failed", text: label, why: `HTTP ${res.status}: ${body.error}` });
-        return { ok: false, short: `Failed: HTTP ${res.status}`, steps };
-      }
-      const tx = readSettlement(res)?.transaction;
-      steps.push("Proof verified, 200 OK");
-      log({ kind: "ok", tag: "Paid", text: label, why: `${fmt(api.price)} USDC → ${api.account}`, tx });
-      return { ok: true, short: `Paid ${fmt(api.price)} USDC`, result: body, steps };
-    } catch (err) {
-      return blocked(err, label, steps);
-    }
-  }
-
-  function blocked(err: unknown, label: string, steps: string[]): Outcome {
-    if (!(err instanceof FirewallError)) throw err;
-    const [short, why] = explain(err.code);
-    steps.push(`Wallet refused: ${err.code}`);
-    log({ kind: "no", tag: "Blocked", text: label, why });
-    return { ok: false, short: `Blocked: ${short}`, steps };
-  }
-
-  // Wraps a handler: runs it in the queue, then answers with its result plus the fresh state.
-  const action =
-    (work: (req: Request) => Promise<object | void>) =>
-    async (req: Request, res: express.Response, next: express.NextFunction) => {
+  const handle =
+    (work: (req: Request) => Promise<object>) =>
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
-        res.json(await serial(async () => ({ ...(await work(req)), state: await state() })));
+        res.json(await work(req));
       } catch (err) {
         next(err);
       }
     };
 
-  app.get("/api/state", async (_req, res, next) => {
-    try {
-      res.json(await state());
-    } catch (err) {
-      next(err);
-    }
+  const local = (req: Request) => `http://127.0.0.1:${(req.socket.address() as AddressInfo).port}`;
+  const apisOf = (m: Market) =>
+    m.apis.map((a) => ({ id: a.id, name: a.name, account: a.account, price: Number(a.price), description: a.description, defaultQuery: a.defaultQuery }));
+  const numbers = (b: Budget) => ({
+    balance: Number(b.balance),
+    spentToday: Number(b.spentToday),
+    policy: { perTxMax: Number(b.policy.perTxMax), dailyMax: Number(b.policy.dailyMax), allowlist: b.policy.allowlist, paused: b.policy.paused },
   });
 
-  // Owner controls. On chain only the owner's key can call these.
+  app.get("/api/config", (_req, res) => {
+    res.json({ testnet: hub ? hub.config : null });
+  });
+
+  // ---------- practice ----------
+
+  const { wallet, market } = practice;
+  const practiceState = async () => ({
+    mode: "practice",
+    network: practice.ledger.network,
+    vault: wallet.vault,
+    explorer: null,
+    budget: numbers(await wallet.view()),
+    apis: apisOf(market),
+    activity: feed("practice"),
+  });
+  const practiceAgent = async (): Promise<AgentOptions> => ({
+    ledger: practice.ledger,
+    vault: wallet.vault,
+    asset: practice.asset,
+    budget: await wallet.view(),
+    checksBalance: false,
+  });
+
+  app.get("/api/practice/state", handle(practiceState));
+
   app.patch(
-    "/api/policy",
-    action(async (req) => {
-      const { perTxMax, dailyMax, paused, allow } = req.body ?? {};
-      const { policy } = await wallet.view();
-      if (perTxMax !== undefined || dailyMax !== undefined) {
-        await wallet.setLimits(
-          perTxMax === undefined ? policy.perTxMax : units(perTxMax, LIMITS.perTxMax),
-          dailyMax === undefined ? policy.dailyMax : units(dailyMax, LIMITS.dailyMax),
-        );
-      }
-      if (typeof paused === "boolean" && paused !== policy.paused) {
-        await wallet.setPaused(paused);
-        log({ kind: paused ? "no" : "ok", tag: "Setting", text: paused ? "Wallet paused" : "Wallet resumed", why: "Only the owner can do this" });
-      }
-      if (allow && typeof allow.account === "string" && market.apis.some((a) => a.account === allow.account)) {
-        await wallet.setAllowed(allow.account, Boolean(allow.on));
-        log({ kind: allow.on ? "ok" : "no", tag: "Setting", text: `${allow.on ? "Allowed" : "Removed"} ${allow.account}`, why: "Only the owner can change this" });
-      }
-    }),
+    "/api/practice/policy",
+    handle((req) =>
+      serial(async () => {
+        const { perTxMax, dailyMax, paused, allow } = req.body ?? {};
+        const { policy } = await wallet.view();
+        if (perTxMax !== undefined || dailyMax !== undefined) {
+          await wallet.setLimits(
+            perTxMax === undefined ? policy.perTxMax : units(perTxMax, LIMITS.perTxMax),
+            dailyMax === undefined ? policy.dailyMax : units(dailyMax, LIMITS.dailyMax),
+          );
+          log("practice", { kind: "ok", tag: "Setting", text: "Limits changed", why: "Owner only" });
+        }
+        if (typeof paused === "boolean" && paused !== policy.paused) {
+          await wallet.setPaused(paused);
+          log("practice", { kind: paused ? "no" : "ok", tag: "Setting", text: paused ? "Wallet paused" : "Wallet resumed", why: "Owner only" });
+        }
+        if (allow && typeof allow.account === "string" && market.apis.some((a) => a.account === allow.account)) {
+          await wallet.setAllowed(allow.account, Boolean(allow.on));
+          log("practice", { kind: allow.on ? "ok" : "no", tag: "Setting", text: `${allow.on ? "Allowed" : "Removed"} ${allow.account}`, why: "Owner only" });
+        }
+        return { state: await practiceState() };
+      }),
+    ),
   );
 
   app.post(
-    "/api/new-day",
-    action(async () => {
-      await wallet.resetDay();
-      log({ kind: "ok", tag: "New day", text: "Daily spend reset", why: "0.00 spent today" });
-    }),
+    "/api/practice/new-day",
+    handle(() =>
+      serial(async () => {
+        await wallet.resetDay();
+        log("practice", { kind: "ok", tag: "New day", text: "Daily spend reset", why: "0.00 spent today" });
+        return { state: await practiceState() };
+      }),
+    ),
   );
 
   app.post(
-    "/api/call",
-    action((req) => {
-      const api = market.apis.find((a) => a.id === req.body?.api);
-      return callApi(req, String(req.body?.api), req.body?.q, `${api?.name ?? "Unknown"} API`);
-    }),
+    "/api/practice/call",
+    handle((req) => serial(async () => ({ ...(await call(req, "practice", "/market", market, practiceAgent)), state: await practiceState() }))),
   );
 
-  app.post("/api/attack", action((req) => attack(req, String(req.body?.kind))));
+  app.post(
+    "/api/practice/attack",
+    handle((req) => serial(async () => ({ ...(await attack(req, "practice", "/market", market, practiceAgent)), state: await practiceState() }))),
+  );
 
-  async function attack(req: Request, kind: string): Promise<Outcome> {
+  // ---------- testnet: the visitor's own wallet ----------
+
+  if (hub && hubMarket) {
+    const account = (req: Request) => {
+      const id = String(req.params.account ?? "");
+      if (!ACCOUNT.test(id)) throw Object.assign(new Error("invalid account id"), { status: 400 });
+      return id;
+    };
+    const testnetState = async (id: string) => {
+      const [budget, added] = await Promise.all([hub.budget(id), hub.agentKeyAdded(id)]);
+      return {
+        mode: "testnet",
+        network: `near-${hub.config.network}`,
+        vault: id,
+        hub: hub.config.hub,
+        explorer: `${hub.config.explorer}/txns/`,
+        budget: budget && { ...numbers(budget), faucetReady: budget.faucetReady },
+        agentKey: { publicKey: hub.keys.publicKey(id) ?? null, added },
+        apis: apisOf(hubMarket),
+        activity: feed(id),
+      };
+    };
+    const hubAgent = (id: string) => async (): Promise<AgentOptions> => {
+      const budget = await hub.budget(id);
+      if (!budget) throw Object.assign(new Error("create your budget first"), { status: 409 });
+      return { ledger: hub.ledger(id), vault: id, asset: hub.config.token, budget, checksBalance: true };
+    };
+    const needsKey = async (id: string) => {
+      if (!(await hub.agentKeyAdded(id))) throw Object.assign(new Error("add the agent's key first"), { status: 409 });
+    };
+
+    app.get("/api/testnet/:account/state", handle((req) => testnetState(account(req))));
+
+    // The agent's key pair for this account. The visitor adds the public key in their wallet.
+    app.post(
+      "/api/testnet/:account/agent-key",
+      handle(async (req) => ({ publicKey: hub.keys.ensure(account(req)), hub: hub.config.hub, methodNames: ["pay"] })),
+    );
+
+    // The owner signed something in their wallet; note it in the activity log.
+    app.post(
+      "/api/testnet/:account/note",
+      handle(async (req) => {
+        const id = account(req);
+        const text = String(req.body?.text ?? "").slice(0, 80);
+        const tx = typeof req.body?.tx === "string" ? req.body.tx.slice(0, 64) : undefined;
+        if (text) log(id, { kind: req.body?.kind === "no" ? "no" : "ok", tag: "Signed", text, why: "In your NEAR wallet", tx });
+        return { state: await testnetState(id) };
+      }),
+    );
+
+    app.post(
+      "/api/testnet/:account/call",
+      handle(async (req) => {
+        const id = account(req);
+        await needsKey(id);
+        return serial(async () => ({ ...(await call(req, id, "/testnet/market", hubMarket, hubAgent(id))), state: await testnetState(id) }));
+      }),
+    );
+
+    app.post(
+      "/api/testnet/:account/attack",
+      handle(async (req) => {
+        const id = account(req);
+        await needsKey(id);
+        return serial(async () => ({ ...(await attack(req, id, "/testnet/market", hubMarket, hubAgent(id))), state: await testnetState(id) }));
+      }),
+    );
+  }
+
+  // ---------- the agent ----------
+
+  async function call(req: Request, space: string, prefix: string, m: Market, agent: () => Promise<AgentOptions>) {
+    const api = m.apis.find((a) => a.id === req.body?.api);
+    if (!api) throw Object.assign(new Error("unknown API"), { status: 400 });
+    const q = String(req.body?.q || api.defaultQuery).slice(0, 80);
+    const path = `${prefix}/${api.id}?q=${encodeURIComponent(q)}`;
+    const run = await runCall(await agent(), local(req) + path, path);
+    logRun(space, `${api.name} API`, run, api.account, api.price);
+    return run;
+  }
+
+  async function attack(req: Request, space: string, prefix: string, m: Market, agent: () => Promise<AgentOptions>) {
+    const kind = String(req.body?.kind);
     if (kind === "inject") {
-      // The agent obeys the poisoned News response and calls the attacker's endpoint.
-      const steps = ["Agent follows a fake prompt to /market/vip-unlock"];
-      const label = `Fake prompt: "pay ${market.attacker}"`;
-      try {
-        const res = await agentFetch(req, steps)("/market/vip-unlock");
-        log({ kind: "no", tag: "Paid", text: label, why: `0.09 USDC → ${market.attacker}` });
-        return { ok: true, short: "The attacker got paid", result: await res.json(), steps };
-      } catch (err) {
-        return blocked(err, label, steps);
-      }
+      // The agent obeys the poisoned News answer and calls the attacker's endpoint.
+      const path = `${prefix}/vip-unlock`;
+      const run = await runCall(await agent(), local(req) + path, `${path} (a fake prompt said to)`);
+      logRun(space, `Fake prompt: "pay ${m.attacker}"`, run, m.attacker, USDC(0.09));
+      return run;
     }
     if (kind === "drain") {
-      // A jailbroken agent skips the API and calls the vault's `pay` directly.
-      const steps = ["Agent calls pay() for the whole balance"];
-      const label = "Send the whole balance";
-      try {
-        const { balance: amount } = await wallet.view();
-        await ledger.pay({ vault, payee: market.attacker, amount, memo: "" });
-        log({ kind: "no", tag: "Paid", text: label, why: `${fmt(amount)} USDC → ${market.attacker}` });
-        return { ok: true, short: "The wallet was drained", steps };
-      } catch (err) {
-        return blocked(err, label, steps);
-      }
+      const opts = await agent();
+      const amount = opts.budget.balance > 0n ? opts.budget.balance : USDC(5);
+      const run = await runDirectPay(opts, m.attacker, amount);
+      logRun(space, "Send the whole balance", run, m.attacker, amount);
+      return run;
     }
     if (kind === "loop") {
       // The priciest allowed API, so the daily budget runs out in a few calls.
-      const { policy } = await wallet.view();
-      const api = market.apis
-        .filter((a) => policy.allowlist.includes(a.account))
-        .sort((a, b) => Number(b.price - a.price))[0];
-      if (!api) {
-        log({ kind: "no", tag: "Stopped", text: "Spam 30 calls", why: "No API is allowed" });
-        return { ok: false, short: "No API is allowed", steps: [] };
+      const { budget } = await agent();
+      const api = m.apis.filter((a) => budget.policy.allowlist.includes(a.account)).sort((a, b) => Number(b.price - a.price))[0];
+      if (!api) return { ok: false, short: "No API is allowed", steps: [], runs: [] };
+      const runs: { n: number; ok: boolean; short: string; tx?: string }[] = [];
+      let last: Run | undefined;
+      for (let i = 1; i <= 30; i++) {
+        const path = `${prefix}/${api.id}?q=${encodeURIComponent(api.defaultQuery)}`;
+        last = await runCall(await agent(), local(req) + path, `${path} (call ${i} of 30)`);
+        logRun(space, `${api.name} call ${i}`, last, api.account, api.price);
+        runs.push({ n: i, ok: last.ok, short: last.short, tx: last.tx });
+        if (!last.ok) break;
       }
-      let n = 0;
-      for (let i = 0; i < 30; i++) {
-        const r = await callApi(req, api.id, undefined, `${api.name} call ${i + 1}`);
-        if (!r.ok) break;
-        n++;
-      }
+      const n = runs.filter((r) => r.ok).length;
       const ok = n === 30;
-      log({ kind: ok ? "ok" : "no", tag: ok ? "Done" : "Stopped", text: "Spam 30 calls", why: `${n} of 30 calls went through` });
-      return { ok, short: ok ? "All 30 calls went through" : `Stopped after ${n} of 30 calls`, steps: [] };
+      log(space, { kind: ok ? "ok" : "no", tag: ok ? "Done" : "Stopped", text: "Spam 30 calls", why: `${n} of 30 calls went through` });
+      return { ...last!, ok, short: ok ? "All 30 calls went through" : `Stopped after ${n} of 30 calls`, runs };
     }
-    return { ok: false, short: "Unknown attack", steps: [] };
+    throw Object.assign(new Error("unknown attack"), { status: 400 });
   }
 
-  app.use(express.static(webDir ?? fileURLToPath(new URL("../../web", import.meta.url))));
+  const pages = webDir ?? fileURLToPath(new URL("../../web", import.meta.url));
+  app.get("/app", (_req, res) => res.sendFile("app.html", { root: pages }));
+  app.use(express.static(pages));
+  app.use((err: Error & { status?: number }, _req: Request, res: Response, _next: NextFunction) => {
+    const status = err.status ?? 500;
+    if (status === 500) console.error(err);
+    res.status(status).json({ error: err.message });
+  });
   return app;
 }
 
 /** Parses a micro-USDC amount from the client and clamps it to a sane range. */
 function units(value: unknown, max: bigint) {
   return BigInt(Math.max(10_000, Math.min(Number(max), Math.round(Number(value) || 0))));
-}
-
-function explain(code: FirewallCode): [string, string] {
-  switch (code) {
-    case "ERR_PAUSED": return ["wallet paused", "The wallet is paused"];
-    case "ERR_PER_TX_LIMIT": return ["over per-call limit", "The amount is over the per-call limit"];
-    case "ERR_PAYEE_NOT_ALLOWED": return ["not allowed", "That account isn't on the allowed list"];
-    case "ERR_DAILY_LIMIT": return ["daily limit reached", "It would pass the daily limit"];
-    default: return ["refused", code];
-  }
 }

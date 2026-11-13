@@ -32,5 +32,5 @@ export async function verifyPayment(
   if (payment.network !== req.network) return { ok: false, reason: "wrong network" };
   if (payment.payload.nonce !== req.extra.nonce) return { ok: false, reason: "nonce mismatch" };
   const events = await ledger.transfersIn(payment.payload.txHash, payment.payload.payer);
-  return matchTransfer(events, req, payment.payload.payer);
+  return matchTransfer(events, req, payment.payload.from ?? payment.payload.payer);
 }

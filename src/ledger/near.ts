@@ -2,23 +2,30 @@ import { Account, Connection, InMemorySigner, KeyPair, keyStores, providers } fr
 import { FirewallError, type FirewallCode } from "../policy.js";
 import type { FtTransferEvent, Ledger } from "./types.js";
 
-const PAY_GAS = 100_000_000_000_000n; // 100 Tgas: pay + ft_transfer + callback
+const PAY_GAS = 50_000_000_000_000n; // 50 Tgas: pay + ft_transfer (15) + callback (10)
 
 export interface NearLedgerConfig {
   networkId: string; // "testnet" | "mainnet"
   rpcUrl: string;
   /** Only needed to pay. A server that only verifies can omit it. */
   agent?: { vault: string; privateKey: string };
+  /**
+   * The firewall contract to call `pay` on. Defaults to the vault itself
+   * (agent-firewall). For the Firewall Hub it is the hub, and the vault is the owner's account.
+   */
+  contract?: string;
 }
 
 /** Talks to a real NEAR network: pays through the firewall contract, and verifies via RPC. */
 export class NearLedger implements Ledger {
   network: string;
+  fundsHolder?: string;
   private provider: providers.JsonRpcProvider;
   private account?: Promise<Account>;
 
   constructor(private config: NearLedgerConfig) {
     this.network = `near-${config.networkId}`;
+    if (config.contract) this.fundsHolder = config.contract;
     this.provider = new providers.JsonRpcProvider({ url: config.rpcUrl });
     if (config.agent) this.account = this.connect(config.agent);
   }
@@ -28,7 +35,7 @@ export class NearLedger implements Ledger {
     const account = await this.account;
     try {
       const outcome = await account.functionCall({
-        contractId: vault,
+        contractId: this.config.contract ?? vault,
         methodName: "pay",
         args: { payee, amount: amount.toString(), memo },
         gas: PAY_GAS,

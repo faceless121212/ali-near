@@ -46,7 +46,7 @@ export function createPayingFetch(opts: PayingFetchOptions) {
       x402Version: PROTOCOL_VERSION,
       scheme: SCHEME,
       network: requirements.network,
-      payload: { txHash, payer: opts.vault, nonce: requirements.extra.nonce },
+      payload: { txHash, payer: opts.vault, nonce: requirements.extra.nonce, from: opts.ledger.fundsHolder },
     };
     const headers = new Headers(init.headers);
     headers.set("X-PAYMENT", encodeHeader(payment));

@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { parseFtTransfer } from "../src/ledger/near.js";
 import type { FtTransferEvent } from "../src/ledger/types.js";
 import type { PaymentRequirements } from "../src/near6/types.js";
-import { matchTransfer } from "../src/near6/verify.js";
+import { matchTransfer, verifyPayment } from "../src/near6/verify.js";
+import type { Ledger } from "../src/ledger/types.js";
 
 const req: PaymentRequirements = {
   scheme: "near6",
@@ -37,6 +38,31 @@ describe("matchTransfer", () => {
     ["different payer", { oldOwner: "someone.testnet" }],
   ])("rejects %s", (_name, patch) => {
     expect(matchTransfer([{ ...good, ...patch }], req, "bot.testnet").ok).toBe(false);
+  });
+});
+
+describe("verifyPayment with a shared firewall contract", () => {
+  // Firewall Hub: alice's agent signs the tx, but the tokens leave from the hub.
+  const hubEvent: FtTransferEvent = { ...good, oldOwner: "hub.testnet" };
+  const ledger: Ledger = {
+    network: "near-testnet",
+    pay: async () => "tx",
+    transfersIn: async (_tx, sender) => (sender === "alice.testnet" ? [hubEvent] : []),
+  };
+  const payment = (from?: string) => ({
+    x402Version: 1,
+    scheme: "near6" as const,
+    network: "near-testnet",
+    payload: { txHash: "tx", payer: "alice.testnet", nonce: "abc", from },
+  });
+
+  it("accepts the transfer when the proof names the hub as `from`", async () => {
+    expect((await verifyPayment(ledger, payment("hub.testnet"), req)).ok).toBe(true);
+  });
+
+  it("rejects it when `from` doesn't match the token sender", async () => {
+    expect((await verifyPayment(ledger, payment(), req)).ok).toBe(false);
+    expect((await verifyPayment(ledger, payment("other.testnet"), req)).ok).toBe(false);
   });
 });
 

@@ -9,6 +9,8 @@ export interface FtTransferEvent {
 
 export interface Ledger {
   network: string;
+  /** Account the tokens leave when it isn't the vault itself (a shared firewall contract). */
+  fundsHolder?: string;
   /** Calls `pay` on the agent's firewall vault. Throws FirewallError if the policy blocks it. */
   pay(args: { vault: string; payee: string; amount: bigint; memo: string }): Promise<string>;
   /** Successful ft_transfer events produced by a transaction. */

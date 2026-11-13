@@ -19,7 +19,9 @@ export type FirewallCode =
   | "ERR_PER_TX_LIMIT"
   | "ERR_PAYEE_NOT_ALLOWED"
   | "ERR_MEMO_TOO_LONG"
-  | "ERR_DAILY_LIMIT";
+  | "ERR_DAILY_LIMIT"
+  | "ERR_BALANCE" // Firewall Hub only: the budget holds less than the amount
+  | "ERR_NO_VAULT"; // Firewall Hub only: the account has no budget
 
 export type Decision = { ok: true } | { ok: false; code: FirewallCode; reason: string };
 

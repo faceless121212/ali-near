@@ -12,17 +12,26 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build:contracts": "sh scripts/build-contracts.sh",
-    "deploy:testnet": "tsx scripts/deploy-testnet.ts"
+    "deploy:testnet": "tsx scripts/deploy-testnet.ts",
+    "deploy:hub": "tsx scripts/deploy-hub.ts",
+    "build:web": "esbuild web-src/app.js --bundle --format=esm --minify --platform=browser --target=es2022 --define:global=globalThis --outfile=web/app.js"
   },
   "dependencies": {
     "express": "^4.22.3",
     "near-api-js": "^5.1.1"
   },
   "devDependencies": {
+    "@near-wallet-selector/core": "^10.1.4",
+    "@near-wallet-selector/meteor-wallet": "^10.1.4",
+    "@near-wallet-selector/modal-ui": "^10.1.4",
+    "@near-wallet-selector/my-near-wallet": "^10.1.4",
     "@types/express": "^4.17.25",
     "@types/node": "^26.6.6",
+    "buffer": "^6.0.3",
+    "esbuild": "^0.28.2",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
+    "util": "^0.12.5",
     "vitest": "^5.1.0"
   }
 }

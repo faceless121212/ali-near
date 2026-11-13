@@ -30,7 +30,11 @@ export interface PaymentPayload {
   x402Version: number;
   scheme: typeof SCHEME;
   network: string;
-  payload: { txHash: string; payer: string; nonce: string };
+  /**
+   * `payer` signed the transaction. `from` is the account the tokens left, when
+   * that differs from the payer (a shared firewall contract holding the funds).
+   */
+  payload: { txHash: string; payer: string; nonce: string; from?: string };
 }
 
 export interface SettlementResponse {

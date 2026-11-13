@@ -133,76 +133,17 @@ header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; backg
 .wire { font-family: var(--mono); font-size: 0.75rem; line-height: 1.6; background: var(--card); border-radius: 16px; padding: 12px 14px; overflow-x: auto; white-space: pre; }
 .wire .ok { color: var(--ok); } .wire .no { color: var(--no); }
 
-/* Playground */
-.play-wrap { background: var(--soft); border-radius: 48px; padding: clamp(16px, 3vw, 40px); }
-.playground { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 20px; align-items: start; }
-@media (max-width: 940px) { .playground { grid-template-columns: minmax(0, 1fr); } }
-.vault { background: var(--vault); border: 1px solid var(--vault-line); color: #f9f8f5; border-radius: 32px; padding: 24px; display: grid; gap: 18px; }
-.vault-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
-.vault-name { font-family: var(--font-title); font-weight: 800; font-size: 1.25rem; letter-spacing: -0.02em; }
-.acct { font-family: var(--mono); font-size: 0.75rem; color: rgba(249, 248, 245, 0.6); word-break: break-all; }
-.pill { font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 99999px; background: var(--pink); color: #0b051d; white-space: nowrap; }
-.pill.off { background: #ff6b83; }
-.balance { font-family: var(--font-title); font-size: 3.25rem; font-weight: 800; letter-spacing: -0.04em; line-height: 1; font-variant-numeric: tabular-nums; }
-.balance small { font-family: var(--font); font-size: 1rem; font-weight: 500; color: rgba(249, 248, 245, 0.6); letter-spacing: 0; margin-left: 6px; }
-.field { display: grid; gap: 8px; }
-.field-row { display: flex; justify-content: space-between; font-size: 0.9375rem; }
-.field-row output { font-variant-numeric: tabular-nums; font-weight: 600; }
-.field-row output.full { color: #ff8a9d; }
-input[type="range"] { width: 100%; accent-color: var(--pink); }
-.meter { height: 8px; border-radius: 99999px; background: rgba(249, 248, 245, 0.14); overflow: hidden; }
-.meter span { display: block; height: 100%; width: 0; background: var(--pink); border-radius: 99999px; transition: width .25s ease; }
-.meter.full span { background: #ff6b83; }
-.vault-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.vault-btns button { min-height: 42px; border-radius: 99999px; border: 1px solid rgba(249, 248, 245, 0.25); background: transparent; color: #f9f8f5; font: 500 0.9375rem var(--font); cursor: pointer; }
-.vault-btns button:hover { background: rgba(249, 248, 245, 0.08); }
-
-.console { display: grid; gap: 14px; min-width: 0; }
-.sub { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.sub strong { font-family: var(--font-title); font-size: 1.125rem; letter-spacing: -0.02em; }
-.sub span { font-size: 0.8125rem; color: var(--muted); }
-.market { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
-.api { background: var(--tile); border: 1px solid var(--tile-line); border-radius: 18px; padding: 12px 14px; display: grid; grid-template-columns: 44px minmax(0, 1fr) auto auto; align-items: center; gap: 4px 12px; transition: border-color .2s, box-shadow .2s; }
-.api.flash-ok { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok); }
-.api.flash-no { border-color: var(--no); box-shadow: 0 0 0 1px var(--no); }
-.api-mark { width: 44px; height: 44px; border-radius: 12px; object-fit: cover; background: var(--render); }
-.api-name { font-weight: 600; font-size: 1rem; line-height: 1.25; color: var(--ink); }
-.api-price { white-space: nowrap; font-size: 0.875rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-.api.is-off .api-mark { opacity: 0.55; }
-.api.is-off .api-name { color: var(--muted); }
-.api-state { grid-column: 1 / -1; font-size: 0.8125rem; font-weight: 600; }
-.api-state:empty { display: none; }
-.api-state.ok { color: var(--ok); }
-.api-state.no { color: var(--no); }
-.switch { position: relative; width: 46px; height: 28px; border-radius: 99999px; border: 0; padding: 0; background: var(--switch-off); cursor: pointer; transition: background .2s; }
-.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); transition: transform .2s; }
-.switch[aria-checked="true"] { background: var(--pink); }
-.switch[aria-checked="true"]::after { transform: translateX(18px); }
-.call { min-height: 40px; padding: 0 18px; border-radius: 99999px; border: 1px solid var(--tile-line); background: transparent; color: var(--ink); font: 600 0.875rem var(--font); cursor: pointer; }
-.call:hover { background: var(--hover); }
-.attacks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-@media (max-width: 520px) { .attacks { grid-template-columns: minmax(0, 1fr); } }
-.attack-result { font-size: 0.875rem; font-weight: 600; min-height: 1.3em; }
-.attack-result.ok { color: var(--ok); } .attack-result.no { color: var(--no); }
-.attack { text-align: left; border: 1.5px solid var(--no); background: var(--bg); border-radius: 16px; padding: 12px 14px; min-height: 44px; display: grid; gap: 2px; cursor: pointer; color: var(--ink); font-family: var(--font); }
-.attack:hover { background: var(--no-soft); }
-.attack strong { font-weight: 600; color: var(--no); }
-.attack span { font-size: 0.8125rem; color: var(--muted); }
-.log { list-style: none; margin: 0; padding: 0; background: var(--bg); border-radius: 16px; max-height: 280px; overflow-y: auto; }
-.log li { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--line); font-size: 0.9375rem; }
-.log li:last-child { border-bottom: 0; }
-.tag { font-size: 0.75rem; font-weight: 600; padding: 3px 8px; border-radius: 99999px; justify-self: start; align-self: start; }
-.tag.ok { background: var(--ok-soft); color: var(--ok); }
-.tag.no { background: var(--no-soft); color: var(--no); }
-.call:disabled, .attack:disabled { opacity: 0.55; cursor: progress; }
-.mode { font-size: 0.75rem; font-weight: 600; padding: 3px 10px; border-radius: 99999px; background: var(--soft); color: var(--muted); white-space: nowrap; }
-.mode.live { background: var(--ok-soft); color: var(--ok); }
-.resp { background: var(--tile); border: 1px solid var(--tile-line); border-radius: 16px; padding: 12px 14px; display: grid; gap: 8px; min-width: 0; }
-.resp ol { margin: 0; padding-left: 18px; font-size: 0.8125rem; color: var(--muted); display: grid; gap: 2px; }
-.resp pre { margin: 0; font: 400 0.75rem/1.6 var(--mono); white-space: pre-wrap; word-break: break-word; max-height: 160px; overflow-y: auto; }
-.why a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
-.switch:disabled, .vault-btns button:disabled { opacity: 0.55; cursor: progress; }
-.why { display: block; color: var(--muted); font-size: 0.8125rem; margin-top: 1px; }
+/* App teaser */
+.app-band { background: var(--soft); border-radius: 48px; padding: clamp(20px, 4vw, 48px); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: clamp(20px, 4vw, 48px); align-items: center; }
+@media (max-width: 900px) { .app-band { grid-template-columns: minmax(0, 1fr); } }
+.app-copy { display: grid; gap: 18px; }
+.app-modes { display: grid; gap: 10px; }
+.app-mode { background: var(--bg); border: 1px solid var(--line); border-radius: 24px; padding: 18px 20px; display: grid; gap: 4px; }
+.app-mode strong { font-family: var(--font-title); font-size: 1.125rem; letter-spacing: -0.02em; }
+.app-mode p { color: var(--muted); font-size: 0.9375rem; }
+.app-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; counter-reset: s; }
+.app-steps li { counter-increment: s; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: baseline; font-size: 0.9375rem; }
+.app-steps li::before { content: counter(s); width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--ok-soft); color: var(--ok); font: 700 0.8125rem var(--font-title); }
 
 /* Security split */
 .secure { display: grid; grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr); gap: clamp(24px, 5vw, 72px); align-items: center; }
@@ -255,12 +196,12 @@ footer { padding-block: 40px 56px; }
       <a class="logo" href="#top">Ali<i>.</i></a>
       <nav class="nav-links" aria-label="Sections">
         <a class="btn btn-ghost" href="#how">How it works</a>
-        <a class="btn btn-ghost" href="#try">Playground</a>
+        <a class="btn btn-ghost app-link" href="/app">App</a>
         <a class="btn btn-ghost" href="#near6">Near6</a>
         <a class="btn btn-ghost" href="#developers">Developers</a>
       </nav>
     </div>
-    <a class="btn btn-ink" href="#start">Get the code</a>
+    <a class="btn btn-ink" href="https://github.com/faceless121212/ali-near">Get the code</a>
   </div>
 </header>
 
@@ -271,7 +212,7 @@ footer { padding-block: 40px 56px; }
         <div class="chip-row"><span><b>Near6</b> protocol</span><span>USDC on NEAR</span></div>
         <h1>Let your agent spend. Never let it drain.</h1>
         <p>Your AI agent pays for APIs per call. Ali checks your limits before every single payment.</p>
-        <div class="hero-cta"><a class="btn btn-pink" href="#try">Open the playground</a><button class="mini-cmd" id="hero-copy" type="button" aria-label="Copy the command npm start">npm start<span>Copy</span></button></div>
+        <div class="hero-cta"><a class="btn btn-pink app-link" href="/app">Open the app</a><button class="mini-cmd" id="hero-copy" type="button" aria-label="Copy the command npm start">npm start<span>Copy</span></button></div>
       </div>
       <div class="hero-media">
         <video class="anim" src="assets/v4/hero.mp4" poster="assets/v4/hero.jpg" autoplay muted loop playsinline aria-label="A pink coin gliding through a black ring."></video>
@@ -322,52 +263,20 @@ footer { padding-block: 40px 56px; }
 
   <section id="try" style="padding-top:0">
     <div class="wrap">
-      <div class="head">
-        <h2>The <span class="hl">playground</span></h2>
-        <p class="lead">Allow some APIs, call them, then try to break the wallet.</p>
-      </div>
-      <div class="play-wrap">
-        <div class="playground">
-          <div class="vault" aria-label="Wallet limits">
-            <div class="vault-top">
-              <div style="display:grid;gap:4px;min-width:0">
-                <span class="vault-name">Marketing budget</span>
-                <span class="acct" id="vault-acct">marketing.acme.near</span>
-              </div>
-              <span class="pill" id="pill">Active</span>
-            </div>
-            <div class="balance"><span id="balance">5.00</span><small>USDC</small></div>
-            <div class="field">
-              <div class="field-row"><label for="per-tx">Per call</label><output id="per-tx-out" for="per-tx">0.10</output></div>
-              <input type="range" id="per-tx" min="1" max="100" value="10">
-            </div>
-            <div class="field">
-              <div class="field-row"><label for="daily">Per day</label><output id="spent-out">0.00</output></div>
-              <input type="range" id="daily" min="5" max="500" step="5" value="20">
-              <div class="meter" id="meter"><span></span></div>
-            </div>
-            <div class="vault-btns">
-              <button id="kill" type="button">Pause</button>
-              <button id="reset" type="button">New day</button>
-            </div>
-          </div>
-
-          <div class="console">
-            <div class="sub"><strong>API marketplace</strong><span class="mode" id="mode">Demo mode</span></div>
-            <p style="margin:-6px 0 0;font-size:0.8125rem;color:var(--muted)">Switch on the APIs your agent may pay · prices in USDC</p>
-            <div class="market" id="market"></div>
-            <div class="resp" id="resp" hidden aria-live="polite"><div class="sub"><strong id="resp-title" style="font-size:1rem">Last call</strong></div><ol id="resp-steps"></ol><pre id="resp-body"></pre></div>
-            <div class="sub"><strong>Attacks</strong><span class="attack-result" id="attack-result" aria-live="polite"></span></div>
-            <div class="attacks">
-              <button class="attack" type="button" data-act="inject"><strong>Fake prompt</strong><span>0.09 → drainer</span></button>
-              <button class="attack" type="button" data-act="drain"><strong>Drain all</strong><span>5.00 → drainer</span></button>
-              <button class="attack" type="button" data-act="loop"><strong>Spam 30 calls</strong><span>to the priciest allowed API</span></button>
-            </div>
-            <div class="sub"><strong>Activity</strong></div>
-            <ol class="log" id="log">
-              <li><span class="tag ok">Ready</span><span>Every payment shows up here.</span></li>
-            </ol>
-          </div>
+      <div class="app-band">
+        <div class="app-copy">
+          <h2>Try it in the <span class="hl">app</span></h2>
+          <p class="lead">Give an agent a budget, let it buy from paid APIs, then try to break it. Every call shows each step: the 402, the firewall checks, the payment on NEAR and the answer.</p>
+          <ol class="app-steps">
+            <li>Set the limits and pick the APIs the agent may pay</li>
+            <li>Press Call and watch the agent pay over Near6</li>
+            <li>Run an attack and see which rule stops it</li>
+          </ol>
+          <div><a class="btn btn-pink app-link" href="/app">Open the app</a></div>
+        </div>
+        <div class="app-modes">
+          <div class="app-mode"><strong>Practice</strong><p>A shared wallet in memory. Instant, nothing to set up.</p></div>
+          <div class="app-mode"><strong>Your NEAR wallet</strong><p>Connect MyNearWallet or Meteor on testnet. You get your own budget and 5 test USDC, you sign every rule, and the agent pays on chain.</p></div>
         </div>
       </div>
     </div>
@@ -448,7 +357,7 @@ footer { padding-block: 40px 56px; }
     <div class="wrap">
       <div class="cta">
         <h2>Try Ali on your laptop</h2>
-        <p style="font-size:1.125rem;max-width:48ch">One command starts the app: real paid APIs, a wallet with limits, and an agent that pays over Near6.</p>
+        <p style="font-size:1.125rem;max-width:48ch">One command starts the app at <code>localhost:3000/app</code>: paid APIs, a wallet with limits, and an agent that pays over Near6.</p>
         <div class="cmd"><code id="cmd-text">npm install &amp;&amp; npm start</code><button id="copy-cmd" type="button">Copy</button></div>
       </div>
     </div>
@@ -521,213 +430,15 @@ footer { padding-block: 40px 56px; }
   $("copy-cmd").addEventListener("click", (e) => copy($("cmd-text").textContent, e.currentTarget, $("cmd-text")));
   document.querySelectorAll(".copy").forEach((b) => b.addEventListener("click", () => { const n = $(b.dataset.target); copy(n.textContent, b, n); }));
 
-  // Firewall playground. Served by `npm start`, every action goes to the Ali
-  // server: the agent gets a real 402, pays through the wallet and retries.
-  // Opened as a plain page, the same checks run here in the browser.
-  const U = 10000; // 0.01 USDC in micro-USDC
-  const fmt = (m) => (m / 1_000_000).toFixed(2);
-  let live = null; // latest server state; null in demo mode
-  const local = { balance: 5_000_000, spent: 0, paused: false };
-  const policy = () => ({
-    perTxMax: +$("per-tx").value * U,
-    dailyMax: +$("daily").value * U,
-    allowlist: [...document.querySelectorAll('.switch[aria-checked="true"]')].map((c) => c.dataset.acct),
-    paused: live ? live.policy.paused : local.paused,
-  });
-  async function server(method, path, body) {
-    const res = await fetch(path, { method, headers: { "Content-Type": "application/json" }, body: body && JSON.stringify(body) });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
-  }
-  function applyLive(s) {
-    live = s;
-    $("vault-acct").textContent = s.vault;
-    // Account names come from the server: *.near in memory, *.<owner>.testnet on chain
-    s.apis.forEach((a) => document.querySelectorAll(`[data-api="${a.id}"]`).forEach((el) => (el.dataset.acct = a.account)));
-    $("per-tx").value = s.policy.perTxMax / U;
-    $("daily").value = s.policy.dailyMax / U;
-    document.querySelectorAll(".switch").forEach((sw) => {
-      const on = s.policy.allowlist.includes(sw.dataset.acct);
-      sw.setAttribute("aria-checked", String(on));
-      sw.closest(".api").classList.toggle("is-off", !on);
-    });
-    logEl.innerHTML = s.activity.length
-      ? s.activity.map((a) => logItem(a.kind, a.tag, a.text, a.why, a.tx && { tx: a.tx, href: s.explorer && s.explorer + a.tx })).join("")
-      : logItem("ok", "Ready", "Every payment shows up here.", "");
-    sync();
-  }
-
-  // [short label for the tile, full reason for the activity log]
-  function check(p, payee, amount) {
-    if (p.paused) return ["wallet paused", "The wallet is paused"];
-    if (amount > p.perTxMax) return ["over per-call limit", `${fmt(amount)} is over the ${fmt(p.perTxMax)} per-call limit`];
-    if (!p.allowlist.includes(payee)) return ["not allowed", `${payee} isn't on the allowed list`];
-    if (local.spent + amount > p.dailyMax) return ["daily limit reached", `Would pass the ${fmt(p.dailyMax)} daily limit`];
-    return null;
-  }
-  const logEl = $("log");
-  // `link` is an optional { tx, href } for the payment's transaction
-  const logItem = (kind, tag, text, why, link) => {
-    const tx = !link ? "" : link.href
-      ? ` · <a href="${esc(link.href)}" target="_blank" rel="noopener">tx ${esc(link.tx.slice(0, 8))}…</a>`
-      : ` · tx ${esc(link.tx.slice(0, 8))}…`;
-    return `<li><span class="tag ${kind}">${esc(tag)}</span><span>${esc(text)}<span class="why">${esc(why)}${tx}</span></span></li>`;
-  };
-  function log(kind, tag, text, why) {
-    logEl.insertAdjacentHTML("afterbegin", logItem(kind, tag, text, why));
-    while (logEl.children.length > 40) logEl.lastChild.remove();
-    sync();
-  }
-  // Demo-mode payment. Returns { ok, short } so the caller can show the result where the user clicked
-  function pay(payee, amount, what) {
-    const denied = check(policy(), payee, amount);
-    if (denied) { log("no", "Blocked", what, denied[1]); return { ok: false, short: `Blocked: ${denied[0]}` }; }
-    if (amount > local.balance) { log("no", "Failed", what, "Not enough balance"); return { ok: false, short: "Not enough balance" }; }
-    local.balance -= amount; local.spent += amount;
-    log("ok", "Paid", what, `${fmt(amount)} USDC → ${payee}`);
-    return { ok: true, short: `Paid ${fmt(amount)} USDC` };
-  }
-  const timers = new WeakMap();
-  function flash(tile, res) {
-    const label = tile.querySelector(".api-state");
-    label.textContent = res.short;
-    label.className = `api-state ${res.ok ? "ok" : "no"}`;
-    tile.classList.remove("flash-ok", "flash-no");
-    tile.classList.add(res.ok ? "flash-ok" : "flash-no");
-    clearTimeout(timers.get(tile));
-    timers.set(tile, setTimeout(() => { tile.classList.remove("flash-ok", "flash-no"); resetState(tile); }, 2200));
-  }
-  function resetState(tile) {
-    const label = tile.querySelector(".api-state");
-    label.textContent = "";
-    label.className = "api-state";
-  }
-  function attackResult(res) {
-    const el = $("attack-result");
-    el.textContent = res.short;
-    el.className = `attack-result ${res.ok ? "ok" : "no"}`;
-  }
-  // Shows what the agent saw: the Near6 steps and the API's answer
-  function showResponse(title, res) {
-    if (!res.steps || !res.steps.length) return;
-    $("resp").hidden = false;
-    $("resp-title").textContent = title;
-    $("resp-steps").innerHTML = res.steps.map((s) => `<li>${esc(s)}</li>`).join("");
-    $("resp-body").textContent = res.result === undefined ? "" : JSON.stringify(res.result, null, 2);
-  }
-  function sync() {
-    const p = policy();
-    const spent = live ? live.spentToday : local.spent;
-    const balance = live ? live.balance : local.balance;
-    $("per-tx-out").textContent = fmt(p.perTxMax);
-    $("spent-out").textContent = `${fmt(spent)} spent of ${fmt(p.dailyMax)}`;
-    $("spent-out").classList.toggle("full", spent >= p.dailyMax);
-    $("balance").textContent = fmt(balance);
-    const pct = Math.min(100, (spent / p.dailyMax) * 100);
-    $("meter").firstElementChild.style.width = pct + "%";
-    $("meter").classList.toggle("full", pct >= 100);
-    $("pill").textContent = p.paused ? "Paused" : "Active";
-    $("pill").classList.toggle("off", p.paused);
-    $("kill").textContent = p.paused ? "Resume" : "Pause";
-  }
-  // Buttons stay disabled while the server works, so one click is one payment
-  async function busy(btn, work) {
-    btn.disabled = true;
-    try { return await work(); }
-    catch (err) { return { ok: false, short: "Server error, try again" }; }
-    finally { btn.disabled = false; }
-  }
-
-  // API marketplace
-  const apis = [
-    ["Weather", "weather-api.near", 1, true, "weather"],
-    ["News", "news-api.near", 5, true, "news"],
-    ["Maps", "maps-api.near", 2, true, "maps"],
-    ["Translate", "translate-api.near", 3, true, "translate"],
-    ["Web search", "search-api.near", 4, false, "search"],
-    ["Stock quotes", "stocks-api.near", 2, false, "stocks"],
-    ["Flight prices", "flights-api.near", 6, false, "flights"],
-    ["Image maker", "images-api.near", 8, false, "images"],
-  ];
-  $("market").innerHTML = apis.map(([name, acct, cents, on, icon]) => `
-    <div class="api${on ? "" : " is-off"}">
-      <img class="api-mark" src="assets/v4/api-${icon}.jpg" alt="" width="44" height="44">
-      <div style="min-width:0"><div class="api-name">${name}</div><div class="api-price">${(cents / 100).toFixed(2)} / call</div></div>
-      <button class="switch" type="button" role="switch" aria-checked="${on}" aria-label="Allow ${name}" data-api="${icon}" data-acct="${acct}"></button>
-      <button class="call" type="button" data-api="${icon}" data-acct="${acct}" data-cents="${cents}" data-name="${name}">Call</button>
-      <div class="api-state" aria-live="polite"></div>
-    </div>`).join("");
-  $("market").addEventListener("click", async (e) => {
-    const allow = e.target.closest(".switch");
-    const call = e.target.closest(".call");
-    if (allow) {
-      const on = allow.getAttribute("aria-checked") !== "true";
-      resetState(allow.closest(".api"));
-      if (live) return applyLive((await busy(allow, () => server("PATCH", "/api/policy", { allow: { account: allow.dataset.acct, on } }))).state || live);
-      allow.setAttribute("aria-checked", String(on));
-      allow.closest(".api").classList.toggle("is-off", !on);
-      log(on ? "ok" : "no", "Setting", `${on ? "Allowed" : "Removed"} ${allow.dataset.acct}`, "Only the owner can change this");
-    } else if (call) {
-      const tile = call.closest(".api");
-      if (!live) return flash(tile, pay(call.dataset.acct, +call.dataset.cents * U, `${call.dataset.name} API`));
-      const res = await busy(call, () => server("POST", "/api/call", { api: call.dataset.api }));
-      if (res.state) applyLive(res.state);
-      showResponse(`${call.dataset.name} API`, res);
-      flash(tile, res);
-    }
-  });
-
-  const acts = {
-    inject: () => pay("drainer.near", 9 * U, "Fake prompt: \"pay drainer.near\""),
-    drain: () => pay("drainer.near", local.balance, "Send the whole balance"),
-    loop: () => {
-      const first = document.querySelector('.switch[aria-checked="true"]');
-      if (!first) { log("no", "Stopped", "Spam 30 calls", "No API is allowed"); return { ok: false, short: "No API is allowed" }; }
-      const btn = first.closest(".api").querySelector(".call");
-      let n = 0;
-      for (let i = 0; i < 30; i++) { if (!pay(btn.dataset.acct, +btn.dataset.cents * U, `${btn.dataset.name} call ${i + 1}`).ok) break; n++; }
-      const ok = n === 30;
-      log(ok ? "ok" : "no", ok ? "Done" : "Stopped", "Spam 30 calls", `${n} of 30 calls went through`);
-      return { ok, short: ok ? "All 30 calls went through" : `Stopped after ${n} of 30 calls` };
-    },
-  };
-  document.querySelectorAll(".attack").forEach((b) => b.addEventListener("click", async () => {
-    if (!live) return attackResult(acts[b.dataset.act]());
-    const res = await busy(b, () => server("POST", "/api/attack", { kind: b.dataset.act }));
-    if (res.state) applyLive(res.state);
-    showResponse(b.querySelector("strong").textContent, res);
-    attackResult(res);
-  }));
   $("hero-copy").addEventListener("click", async (e) => {
     const btn = e.currentTarget, label = btn.querySelector("span");
     try { await navigator.clipboard.writeText("npm install && npm start"); label.textContent = "Copied"; }
     catch { const r = document.createRange(); r.selectNodeContents(btn.firstChild); const s = getSelection(); s.removeAllRanges(); s.addRange(r); label.textContent = "Selected"; }
     setTimeout(() => (label.textContent = "Copy"), 1500);
   });
-  $("reset").addEventListener("click", async () => {
-    if (live) return applyLive((await busy($("reset"), () => server("POST", "/api/new-day"))).state || live);
-    local.spent = 0; log("ok", "New day", "Daily spend reset", "0.00 spent today");
+  // Served by `npm start`, the app lives at /app. Anywhere else, the links go to the code.
+  fetch("/api/config").then((r) => { if (!r.ok) throw new Error(); }).catch(() => {
+    document.querySelectorAll(".app-link").forEach((a) => (a.href = "https://github.com/faceless121212/ali-near#run-the-app"));
   });
-  $("kill").addEventListener("click", async () => {
-    if (live) return applyLive((await busy($("kill"), () => server("PATCH", "/api/policy", { paused: !live.policy.paused }))).state || live);
-    local.paused = !local.paused;
-    log(local.paused ? "no" : "ok", "Setting", local.paused ? "Wallet paused" : "Wallet resumed", "Only the owner can do this");
-  });
-  ["per-tx", "daily"].forEach((id) => {
-    $(id).addEventListener("input", sync);
-    // Limits are saved when the slider is released
-    $(id).addEventListener("change", async () => {
-      if (live) applyLive((await server("PATCH", "/api/policy", { perTxMax: +$("per-tx").value * U, dailyMax: +$("daily").value * U })).state);
-    });
-  });
-  sync();
-
-  // Connect to the Ali server if this page is served by `npm start`
-  server("GET", "/api/state").then((s) => {
-    if (!s || !s.policy) return;
-    applyLive(s);
-    $("mode").textContent = s.network === "near-mock" ? "Live · in-memory ledger" : "Live · NEAR " + s.network.replace("near-", "");
-    $("mode").classList.add("live");
-  }).catch(() => {});
 })();
 </script>
