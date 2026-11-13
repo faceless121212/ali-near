@@ -42,6 +42,7 @@ writeFileSync(
       routes: [
         { src: "^/$", dest: "/index.html" },
         { src: "^/app/?$", dest: "/app.html" },
+        { src: "^/play/?$", dest: "/play.html" },
         { handle: "filesystem" },
         { src: "^/(.*)$", dest: "/index" },
       ],

@@ -81,6 +81,7 @@ code, .mono { font-family: var(--mono); }
 .btn-line { background: transparent; color: var(--ink); border: 1px solid var(--tile-line); }
 .btn-line:hover { background: var(--hover); }
 .who { font: 500 0.8125rem var(--mono); color: var(--muted); max-width: 26ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 860px) { .tour-link { display: none; } }
 @media (max-width: 640px) { .logo small, .who { display: none; } .top-in { gap: 10px; } .seg button { padding: 8px 10px; } }
 
 .page { max-width: 1440px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
@@ -309,6 +310,7 @@ dialog::backdrop { background: rgba(11, 5, 29, 0.45); backdrop-filter: blur(2px)
       <button type="button" id="mode-testnet" aria-pressed="false">My wallet</button>
     </div>
     <div class="top-right">
+      <a class="btn btn-line tour-link" href="/play">Guided tour</a>
       <button class="btn btn-line" type="button" data-help="start">How it works</button>
       <span class="who" id="who"></span>
       <button class="btn btn-ink" type="button" id="connect" hidden>Connect wallet</button>
@@ -334,7 +336,8 @@ dialog::backdrop { background: rgba(11, 5, 29, 0.45); backdrop-filter: blur(2px)
       <li><b>You try to break it</b><span>Fake prompts, draining, endless loops. Watch them get stopped.</span></li>
     </ol>
     <div class="intro-btns">
-      <button class="btn btn-pink" type="button" id="intro-go">Start with the steps below</button>
+      <a class="btn btn-pink" href="/play">New here? Take the 2-minute guided tour</a>
+      <button class="btn btn-line" type="button" id="intro-go">Start with the steps below</button>
       <button class="btn btn-line" type="button" data-help="start">Read the full guide</button>
     </div>
   </section>

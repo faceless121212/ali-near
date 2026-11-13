@@ -148,4 +148,27 @@ describe("Ali app", () => {
     expect((await (await fetch(base + "/api/practice/state")).json()).budget.balance).toBe(5_000_000);
     expect((await send(`/api/demo/${id}/sign`, { method: "create_vault", args: {} })).error).toMatch(/ERR_VAULT_EXISTS/);
   });
+
+  it("guided tour: each step runs on its own fresh budget and leaves nothing behind", async () => {
+    const pay = await send("/api/tour/pay", { q: "Lisbon" });
+    expect(pay.ok).toBe(true);
+    expect(keys(pay)).toEqual(["request", "quote", "checks", "pay", "verify", "answer"]);
+    expect(pay.budget.balance).toBe(4_990_000);
+    expect((await send("/api/tour/inject", {})).code).toBe("ERR_PAYEE_NOT_ALLOWED");
+    expect((await send("/api/tour/drain", {})).code).toBe("ERR_PER_TX_LIMIT");
+    const loop = await send("/api/tour/loop", {});
+    expect(loop.short).toBe("Stopped after 4 of 30 calls");
+    expect(loop.runs).toHaveLength(5);
+    const after = await send("/api/tour/loop", { paidBefore: true });
+    expect(after.short).toBe("Stopped after 3 of 30 calls");
+    expect(after.budget.balance).toBe(4_840_000);
+    expect((await send("/api/tour/pause", {})).code).toBe("ERR_PAUSED");
+    const drain = await send("/api/tour/drain", { paidBefore: true });
+    expect(drain.code).toBe("ERR_PER_TX_LIMIT");
+    expect(drain.steps[0].detail).toBe("4.99 USDC to drainer.near");
+    expect(drain.budget.balance).toBe(4_990_000);
+    expect((await fetch(base + "/api/tour/nope", { method: "POST" })).status).toBe(400);
+    // The shared practice budget is untouched.
+    expect((await (await fetch(base + "/api/practice/state")).json()).budget.balance).toBe(5_000_000);
+  });
 });

@@ -32,6 +32,12 @@ export class MockLedger implements Ledger {
     this.balances.set(account, this.balanceOf(account) + amount);
   }
 
+  /** Forgets a vault and its balance (the guided tour's throwaway budgets). */
+  dropVault(vault: string) {
+    this.vaults.delete(vault);
+    this.balances.delete(vault);
+  }
+
   balanceOf(account: string) {
     return this.balances.get(account) ?? 0n;
   }

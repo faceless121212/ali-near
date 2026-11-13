@@ -18,7 +18,9 @@ npm install
 npm start
 ```
 
-Open **http://localhost:3000/app**. No keys or setup needed. The landing page is at http://localhost:3000.
+Open **http://localhost:3000/play** for the **guided tour**: one example, one idea per chapter, about 2 minutes. You tap a card, and a live view shows the agent, the firewall and the API as it happens. It covers why agents need to pay, why a budget beats a wallet, a real paid call, three attacks (prompt injection, a hijack, a runaway loop) and the pause switch, then where to try it next. Each tap is a real request that the server runs on a fresh test budget (`POST /api/tour/:step`).
+
+Open **http://localhost:3000/app** for the full playground. No keys or setup needed. The landing page is at http://localhost:3000. Live: https://ali-near.vercel.app
 
 The app is a guided playground. A numbered checklist at the top says what to do next, and every agent call fills a timeline with each step and its result:
 
@@ -82,7 +84,7 @@ The demo starts a paid API and an agent against an in-memory ledger that applies
 | 6 | Owner flips the kill switch | 🛡 `ERR_PAUSED` |
 
 ```bash
-npm test          # 57 tests: policy, payment verification, NEAR (x402 v1 + v2) end to end, the app, the MCP server
+npm test          # 58 tests: policy, payment verification, NEAR (x402 v1 + v2) end to end, the app, the MCP server
 npm run typecheck
 ```
 
@@ -170,7 +172,7 @@ The server trusts only the **token contract's** NEP-141 `ft_transfer` event, nev
 | `contracts/firewall-hub/` | The same firewall for many owners in one contract: a budget per NEAR account, the owner's own key signs the rules, the agent's key can call only `pay`, and a test-USDC faucet. 13 unit tests |
 | `contracts/test-usdc/` | NEP-141 test token (6 decimals) for testnet |
 | `src/app/` | The app server: practice and wallet modes, the traced agent (`agent.ts`), the marketplace, the hub client (`testnet.ts`) |
-| `web/` | The landing page, the app page and its committed bundle |
+| `web/` | The landing page, the guided tour (`play.html`, `play.js`), the app page and its committed bundle |
 | `web-src/app.js` | The app's client: NEAR Wallet Selector, the guide, the run timeline |
 | `scripts/` | Contract build, testnet deploys (`deploy-testnet.ts`, `deploy-hub.ts`) and an end-to-end testnet check (`e2e-testnet.ts`) |
 | `src/policy.ts` | The same policy in TypeScript, used by the offline ledger and for error codes |

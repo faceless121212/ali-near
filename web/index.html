@@ -196,7 +196,7 @@ footer { padding-block: 40px 56px; }
       <a class="logo" href="#top">Ali<i>.</i></a>
       <nav class="nav-links" aria-label="Sections">
         <a class="btn btn-ghost" href="#how">How it works</a>
-        <a class="btn btn-ghost app-link" href="/app">App</a>
+        <a class="btn btn-ghost app-link" href="/play">Try it</a>
         <a class="btn btn-ghost" href="#protocol">NEAR</a>
         <a class="btn btn-ghost" href="#developers">Developers</a>
       </nav>
@@ -212,7 +212,7 @@ footer { padding-block: 40px 56px; }
         <div class="chip-row"><span><b>NEAR</b> protocol</span><span>USDC on NEAR</span></div>
         <h1>Let your agent spend. Never let it drain.</h1>
         <p>Your AI agent pays for APIs per call. Ali checks your limits before every single payment.</p>
-        <div class="hero-cta"><a class="btn btn-pink app-link" href="/app">Open the app</a><button class="mini-cmd" id="hero-copy" type="button" aria-label="Copy the command npm start">npm start<span>Copy</span></button></div>
+        <div class="hero-cta"><a class="btn btn-pink app-link" href="/play">Take the 2-minute tour</a><button class="mini-cmd" id="hero-copy" type="button" aria-label="Copy the command npm start">npm start<span>Copy</span></button></div>
       </div>
       <div class="hero-media">
         <video class="anim" src="assets/v4/hero.mp4" poster="assets/v4/hero.jpg" autoplay muted loop playsinline aria-label="A pink coin gliding through a black ring."></video>
@@ -272,7 +272,7 @@ footer { padding-block: 40px 56px; }
             <li>Press Call and watch the agent pay over NEAR</li>
             <li>Run an attack and see which rule stops it</li>
           </ol>
-          <div><a class="btn btn-pink app-link" href="/app">Open the app</a></div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px"><a class="btn btn-pink app-link" href="/play">Take the guided tour</a><a class="btn btn-ghost app-link" href="/app">Open the full playground</a></div>
         </div>
         <div class="app-modes">
           <div class="app-mode"><strong>Practice</strong><p>A shared wallet in memory. Instant, nothing to set up.</p></div>
@@ -436,9 +436,9 @@ footer { padding-block: 40px 56px; }
     catch { const r = document.createRange(); r.selectNodeContents(btn.firstChild); const s = getSelection(); s.removeAllRanges(); s.addRange(r); label.textContent = "Selected"; }
     setTimeout(() => (label.textContent = "Copy"), 1500);
   });
-  // Served by `npm start`, the app lives at /app. Anywhere else, the links go to the code.
+  // Served by the app (npm start or Vercel), the links stay on this site. Anywhere else, they go to the live site.
   fetch("/api/config").then((r) => { if (!r.ok) throw new Error(); }).catch(() => {
-    document.querySelectorAll(".app-link").forEach((a) => (a.href = "https://github.com/faceless121212/ali-near#run-the-app"));
+    document.querySelectorAll(".app-link").forEach((a) => (a.href = "https://ali-near.vercel.app" + a.getAttribute("href")));
   });
 })();
 </script>

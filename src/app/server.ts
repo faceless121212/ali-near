@@ -5,6 +5,7 @@
 //
 // Both run the agent over real NEAR (HTTP 402) against the paid marketplace and
 // return every step of each call.
+import { randomBytes } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import { fileURLToPath } from "node:url";
 import express, { type NextFunction, type Request, type Response } from "express";
@@ -204,6 +205,40 @@ export function createApp({ practice, hub, demo, webDir }: AppOptions) {
 
     app.get("/api/demo/:account/state", handle((req) => demoState(account(req))));
 
+    // The guided tour (/play). Each step is one request with its own fresh budget
+    // (5 USDC, 0.10 per call, 0.20 per day, four APIs allowed), so the tour never
+    // depends on earlier requests or on which server instance answers.
+    const TOUR_STEPS = ["pay", "inject", "drain", "loop", "pause"];
+    app.post(
+      "/api/tour/:step",
+      handle((req) =>
+        serial(async () => {
+          const step = String(req.params.step);
+          if (!TOUR_STEPS.includes(step)) throw Object.assign(new Error("unknown step"), { status: 400 });
+          const id = `tour-${randomBytes(5).toString("hex")}.demo.near`;
+          const allowlist = market.apis.filter((a) => a.allowed).map((a) => a.account);
+          try {
+            demo.sign(id, "create_vault", { per_tx_max: "100000", daily_max: "200000", allowlist });
+            demo.sign(id, "add_key", {});
+            const q = String(req.body?.q ?? "").slice(0, 40) || undefined;
+            // Keeps the story consistent: the forecast bought earlier in the tour counts toward today.
+            if (step !== "pay" && req.body?.paidBefore) await call({ body: { api: "weather" } } as Request, `demo:${id}`, "/market", market, demoAgent(id));
+            if (step === "pause") demo.sign(id, "set_paused", { paused: true });
+            const fake = { body: step === "pay" || step === "pause" ? { api: "weather", q } : { kind: step } } as Request;
+            const run =
+              step === "pay" || step === "pause"
+                ? await call(fake, `demo:${id}`, "/market", market, demoAgent(id))
+                : await attack(fake, `demo:${id}`, "/market", market, demoAgent(id));
+            const view = demo.view(id);
+            return { ...run, budget: view.budget && numbers(view.budget) };
+          } finally {
+            demo.forget(id);
+            activity.delete(`demo:${id}`);
+          }
+        }),
+      ),
+    );
+
     // The visitor approved a transaction in the simulated wallet.
     app.post(
       "/api/demo/:account/sign",
@@ -387,6 +422,7 @@ export function createApp({ practice, hub, demo, webDir }: AppOptions) {
 
   const pages = webDir ?? fileURLToPath(new URL("../../web", import.meta.url));
   app.get("/app", (_req, res) => res.sendFile("app.html", { root: pages }));
+  app.get("/play", (_req, res) => res.sendFile("play.html", { root: pages }));
   app.use(express.static(pages));
   app.use((err: Error & { status?: number }, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status ?? 500;

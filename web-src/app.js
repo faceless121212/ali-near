@@ -69,7 +69,8 @@ const ATTACK_STORY = {
   loop: "A buggy agent called the most expensive allowed API 30 times in a row.",
 };
 
-let mode = ["testnet", "wallet"].includes(safeGet("ali-mode")) ? "wallet" : "practice";
+const askedMode = new URLSearchParams(location.search).get("mode"); // links from the tour: ?mode=wallet
+let mode = ["practice", "wallet"].includes(askedMode) ? askedMode : ["testnet", "wallet"].includes(safeGet("ali-mode")) ? "wallet" : "practice";
 let kind = safeGet("ali-wallet-kind") === "near" ? "near" : "demo"; // which wallet in "wallet" mode
 let config = null; // testnet.json from the server, or null
 let hasDemo = false;

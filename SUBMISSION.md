@@ -38,7 +38,7 @@ AI agents are starting to pay for APIs, data and compute, usually a cent or two 
 ## What's built and verified
 
 - 3 Rust contracts: `agent-firewall` (single-owner vault, 9 tests), `firewall-hub` (multi-owner budgets + faucet, 13 tests), `test-usdc` (NEP-141), all deployed on testnet (`hub.ali-demo-70052.testnet`).
-- TypeScript: NEAR paywall and verifier (x402 v1 + v2), paying fetch, the app, the MCP server. 57 tests.
+- TypeScript: NEAR paywall and verifier (x402 v1 + v2), paying fetch, the app, the MCP server. 58 tests.
 - End-to-end on NEAR testnet (`scripts/e2e-testnet.ts`), each step a real transaction:
   - A paid call went through over x402 v2.
   - Prompt injection was refused with `ERR_PAYEE_NOT_ALLOWED`.
@@ -54,7 +54,9 @@ git clone https://github.com/faceless121212/ali-near && cd ali-near
 npm install && npm start
 ```
 
-Open http://localhost:3000/app:
+Or skip the install: **https://ali-near.vercel.app/play** is a 2-minute guided tour (tap a card, watch it happen), and **https://ali-near.vercel.app/app** is the full playground.
+
+Locally, open http://localhost:3000/play for the tour or http://localhost:3000/app for the playground:
 
 1. **Practice:** press **Call** on Weather and watch the 6 steps, then press the three red attack cards.
 2. **My wallet → Connect → Demo wallet:** approve *Create budget* and *Add key* in the popup, then call and attack.

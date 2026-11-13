@@ -104,6 +104,12 @@ export class DemoWallets {
     return createHash("sha256").update(`demo-${id}-${++this.seq}`).digest("base64url").slice(0, 44);
   }
 
+  /** Removes a throwaway account (used by the guided tour after each step). */
+  forget(id: string) {
+    this.accounts.delete(id);
+    this.ledger.dropVault(id);
+  }
+
   private account(id: string): Account {
     let a = this.accounts.get(id);
     if (!a) {
