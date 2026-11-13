@@ -1,6 +1,6 @@
 import express from "express";
 import type { Ledger } from "./ledger/types.js";
-import { paywall } from "./near6/middleware.js";
+import { paywall } from "./protocol/middleware.js";
 
 export const USDC = (n: number) => BigInt(Math.round(n * 1_000_000)); // 6 decimals
 

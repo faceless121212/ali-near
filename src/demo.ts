@@ -1,4 +1,4 @@
-// Offline end-to-end demo: a paid Near6 API, an AI agent that pays per call,
+// Offline end-to-end demo: a paid NEAR API, an AI agent that pays per call,
 // and the Agent Firewall stopping overspending, a prompt injection and a replay.
 // Runs with no keys or network: `npm run demo`.
 import type { AddressInfo } from "node:net";
@@ -6,7 +6,7 @@ import { createApi, formatUsdc, USDC } from "./api.js";
 import { createPayingFetch, readSettlement } from "./client/paying-fetch.js";
 import { MockLedger } from "./ledger/mock.js";
 import { FirewallError } from "./policy.js";
-import { encodeHeader, type PaymentRequiredBody } from "./near6/types.js";
+import { encodeHeader, type PaymentRequiredBody } from "./protocol/types.js";
 
 const ASSET = "usdc.mock.near";
 const VAULT = "marketing.acme.near";
@@ -83,7 +83,7 @@ async function main() {
   console.log(c.bold("\n5. Someone replays a payment proof they intercepted"));
   ledger.setPolicy(VAULT, { dailyMax: USDC(1) });
   console.log(c.dim("   owner raises the daily budget to 1.00 USDC"));
-  // Do the Near6 handshake by hand so we hold the exact X-PAYMENT header that was sent.
+  // Do the NEAR handshake by hand so we hold the exact X-PAYMENT header that was sent.
   const challenge = (await (await fetch(`${base}/weather?city=Paris`)).json()) as PaymentRequiredBody;
   const reqs = challenge.accepts[0];
   const txHash = await ledger.pay({ vault: VAULT, payee: reqs.payTo, amount: BigInt(reqs.maxAmountRequired), memo: reqs.extra.nonce });

@@ -11,6 +11,6 @@ const ledger = new NearLedger({
 const port = Number(process.env.PORT ?? 4021);
 
 createApi({ ledger, asset: required("ASSET_CONTRACT_ID"), payTo: required("PAY_TO_ACCOUNT_ID") }).listen(port, () => {
-  console.log(`Near6 API on ${ledger.network} listening at http://localhost:${port}`);
+  console.log(`NEAR API on ${ledger.network} listening at http://localhost:${port}`);
   console.log("try: curl -i http://localhost:%d/weather?city=Kyiv", port);
 });

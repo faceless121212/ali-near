@@ -1,5 +1,5 @@
 // The demo agent. It does what createPayingFetch does (402 → pay → retry) but
-// records every step, so the app can show the whole Near6 handshake.
+// records every step, so the app can show the whole NEAR handshake.
 import type { Ledger } from "../ledger/types.js";
 import {
   decodeHeader,
@@ -11,7 +11,7 @@ import {
   type PaymentPayloadV2,
   type PaymentRequiredBody,
   type PaymentRequiredV2,
-} from "../near6/types.js";
+} from "../protocol/types.js";
 import { FirewallError, type FirewallCode, type Policy } from "../policy.js";
 
 /** The wallet as the agent sees it just before paying. */

@@ -55,10 +55,10 @@ describe("Ali app", () => {
     const res = await fetch(base + "/market/translate?q=hello");
     expect(res.status).toBe(402);
     const body = await res.json();
-    expect(body.accepts[0]).toMatchObject({ scheme: "near6", payTo: "translate-api.near", maxAmountRequired: "30000" });
+    expect(body.accepts[0]).toMatchObject({ scheme: "near", payTo: "translate-api.near", maxAmountRequired: "30000" });
   });
 
-  it("a paid call shows every Near6 step and the answer", async () => {
+  it("a paid call shows every NEAR step and the answer", async () => {
     const r = await send("/api/practice/call", { api: "translate", q: "hello agent" });
     expect(r.ok).toBe(true);
     expect(keys(r)).toEqual(["request", "quote", "checks", "pay", "verify", "answer"]);

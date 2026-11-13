@@ -4,7 +4,7 @@
 //! their own wallet; the agent gets a function-call key on the owner's account
 //! that can call only `pay` on this contract, so `pay` always runs as the owner
 //! (the predecessor) and always under the owner's rules. Funds are held here as
-//! internal balances and paid out as NEP-141 transfers, so Near6 can verify them.
+//! internal balances and paid out as NEP-141 transfers, so NEAR can verify them.
 //! Checks run in the same order, with the same codes, as `agent-firewall` and
 //! `src/policy.ts`.
 

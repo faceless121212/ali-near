@@ -155,9 +155,9 @@ header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; backg
 .check-n { width: 44px; height: 44px; border-radius: 99999px; background: var(--pink); color: #0b051d; display: grid; place-items: center; font-family: var(--font-title); font-weight: 800; font-size: 1.125rem; }
 .check p { color: var(--muted); margin-top: 4px; }
 
-/* Near6 explainer */
-.near6 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-@media (max-width: 860px) { .near6 { grid-template-columns: minmax(0, 1fr); } }
+/* NEAR protocol explainer */
+.proto { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 860px) { .proto { grid-template-columns: minmax(0, 1fr); } }
 .n6 { background: var(--card); border-radius: 32px; padding: 28px; display: grid; gap: 12px; align-content: start; }
 .n6 p { color: var(--muted); }
 .n6.pinkbg { background: var(--pink); }
@@ -197,7 +197,7 @@ footer { padding-block: 40px 56px; }
       <nav class="nav-links" aria-label="Sections">
         <a class="btn btn-ghost" href="#how">How it works</a>
         <a class="btn btn-ghost app-link" href="/app">App</a>
-        <a class="btn btn-ghost" href="#near6">Near6</a>
+        <a class="btn btn-ghost" href="#protocol">NEAR</a>
         <a class="btn btn-ghost" href="#developers">Developers</a>
       </nav>
     </div>
@@ -209,7 +209,7 @@ footer { padding-block: 40px 56px; }
   <div class="hero-band">
     <div class="wrap hero">
       <div class="hero-copy">
-        <div class="chip-row"><span><b>Near6</b> protocol</span><span>USDC on NEAR</span></div>
+        <div class="chip-row"><span><b>NEAR</b> protocol</span><span>USDC on NEAR</span></div>
         <h1>Let your agent spend. Never let it drain.</h1>
         <p>Your AI agent pays for APIs per call. Ali checks your limits before every single payment.</p>
         <div class="hero-cta"><a class="btn btn-pink app-link" href="/app">Open the app</a><button class="mini-cmd" id="hero-copy" type="button" aria-label="Copy the command npm start">npm start<span>Copy</span></button></div>
@@ -236,7 +236,7 @@ footer { padding-block: 40px 56px; }
     <div class="wrap">
       <div class="head">
         <h2>Pay per call, the easy way</h2>
-        <p class="lead">Near6 turns any API into a pay-as-you-go service. Three steps, all automatic.</p>
+        <p class="lead">The NEAR protocol turns any API into a pay-as-you-go service. Three steps, all automatic.</p>
       </div>
       <div class="steps">
         <div class="step">
@@ -269,7 +269,7 @@ footer { padding-block: 40px 56px; }
           <p class="lead">Give an agent a budget, let it buy from paid APIs, then try to break it. Every call shows each step: the 402, the firewall checks, the payment on NEAR and the answer.</p>
           <ol class="app-steps">
             <li>Set the limits and pick the APIs the agent may pay</li>
-            <li>Press Call and watch the agent pay over Near6</li>
+            <li>Press Call and watch the agent pay over NEAR</li>
             <li>Run an attack and see which rule stops it</li>
           </ol>
           <div><a class="btn btn-pink app-link" href="/app">Open the app</a></div>
@@ -297,16 +297,16 @@ footer { padding-block: 40px 56px; }
     </div>
   </section>
 
-  <section id="near6" style="padding-top:0">
+  <section id="protocol" style="padding-top:0">
     <div class="wrap">
       <div class="head">
-        <h2>What is <span class="hl">Near6</span>?</h2>
-        <p class="lead">Near6 is an x402-compatible payment scheme for NEAR. It lets any API charge per request.</p>
+        <h2>The <span class="hl">NEAR</span> protocol</h2>
+        <p class="lead">An x402-compatible way to pay on NEAR. It lets any API charge per request.</p>
       </div>
-      <div class="near6">
+      <div class="proto">
         <div class="n6">
           <h3>Built on a web standard</h3>
-          <p>The web has a status code for payments: <code>402 Payment Required</code>. Near6 uses it. The API answers 402 with a price, the agent pays, then asks again with proof.</p>
+          <p>The web has a status code for payments: <code>402 Payment Required</code>. The NEAR protocol uses it. The API answers 402 with a price, the agent pays, then asks again with proof.</p>
         </div>
         <div class="n6">
           <h3>Made for NEAR</h3>
@@ -314,7 +314,7 @@ footer { padding-block: 40px 56px; }
         </div>
         <div class="n6 pinkbg">
           <h3>Speaks x402</h3>
-          <p>Near6 speaks x402 v1 and v2, the open payment standard from Coinbase, on NEAR. Agents that know x402 already know Near6, and any MCP agent can plug in.</p>
+          <p>It speaks x402 v1 and v2, the open payment standard from Coinbase, on NEAR. Agents that know x402 already know it, and any MCP agent can plug in.</p>
         </div>
       </div>
     </div>
@@ -357,7 +357,7 @@ footer { padding-block: 40px 56px; }
     <div class="wrap">
       <div class="cta">
         <h2>Try Ali on your laptop</h2>
-        <p style="font-size:1.125rem;max-width:48ch">One command starts the app at <code>localhost:3000/app</code>: paid APIs, a wallet with limits, and an agent that pays over Near6.</p>
+        <p style="font-size:1.125rem;max-width:48ch">One command starts the app at <code>localhost:3000/app</code>: paid APIs, a wallet with limits, and an agent that pays over NEAR.</p>
         <div class="cmd"><code id="cmd-text">npm install &amp;&amp; npm start</code><button id="copy-cmd" type="button">Copy</button></div>
       </div>
     </div>

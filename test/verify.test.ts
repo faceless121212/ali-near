@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { parseFtTransfer } from "../src/ledger/near.js";
 import type { FtTransferEvent } from "../src/ledger/types.js";
-import type { PaymentRequirements } from "../src/near6/types.js";
-import { matchTransfer, verifyPayment } from "../src/near6/verify.js";
+import type { PaymentRequirements } from "../src/protocol/types.js";
+import { matchTransfer, verifyPayment } from "../src/protocol/verify.js";
 import type { Ledger } from "../src/ledger/types.js";
 
 const req: PaymentRequirements = {
-  scheme: "near6",
+  scheme: "near",
   network: "near-testnet",
   maxAmountRequired: "10000",
   mimeType: "application/json",
@@ -52,7 +52,7 @@ describe("verifyPayment with a shared firewall contract", () => {
   };
   const payment = (from?: string) => ({
     x402Version: 1,
-    scheme: "near6" as const,
+    scheme: "near" as const,
     network: "near-testnet",
     payload: { txHash: "tx", payer: "alice.testnet", nonce: "abc", from },
   });

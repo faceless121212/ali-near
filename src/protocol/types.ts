@@ -1,6 +1,6 @@
-// Near6 wire format: Ali's pay-per-call protocol for NEAR, built on HTTP 402.
+// The NEAR protocol's wire format: Ali's pay-per-call protocol, built on HTTP 402.
 //
-// Near6 is an x402-compatible payment scheme for NEAR. A paywall speaks both
+// It is an x402-compatible payment scheme for NEAR. A paywall speaks both
 // x402 versions at once:
 //   v1  402 JSON body with `accepts`; X-PAYMENT / X-PAYMENT-RESPONSE headers
 //   v2  PAYMENT-REQUIRED / PAYMENT-SIGNATURE / PAYMENT-RESPONSE headers (base64
@@ -11,7 +11,7 @@
 
 export const PROTOCOL_VERSION = 1;
 export const X402_V2 = 2;
-export const SCHEME = "near6";
+export const SCHEME = "near";
 
 export interface PaymentRequirements {
   scheme: typeof SCHEME;

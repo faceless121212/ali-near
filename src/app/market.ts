@@ -3,7 +3,7 @@
 // data so the app runs offline.
 import express from "express";
 import type { Ledger } from "../ledger/types.js";
-import { paywall } from "../near6/middleware.js";
+import { paywall } from "../protocol/middleware.js";
 import { USDC } from "../api.js";
 
 export interface MarketApi {
@@ -94,7 +94,7 @@ const CATALOG: Omit<MarketApi, "account">[] = [
   },
 ];
 
-/** Mounts every marketplace API behind a Near6 paywall, plus the attacker's endpoint. */
+/** Mounts every marketplace API behind a NEAR paywall, plus the attacker's endpoint. */
 export function createMarket({ ledger, asset, market }: { ledger: Ledger; asset: string; market: Market }) {
   const router = express.Router();
   for (const api of market.apis) {

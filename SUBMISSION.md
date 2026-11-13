@@ -23,7 +23,7 @@ AI agents are starting to pay for APIs, data and compute, usually a cent or two 
 
 ## Solution
 
-- **Near6: an x402 payment scheme for NEAR.** One Express middleware turns any API into a paid one. It answers in x402 v1 and v2 (`network: "near:testnet"`). The agent pays with a NEP-141 transfer carrying a one-time nonce, and the API checks the token contract's own transfer event on chain.
+- **NEAR: an x402 payment protocol.** One Express middleware turns any API into a paid one. It answers in x402 v1 and v2 (`network: "near:testnet"`). The agent pays with a NEP-141 transfer carrying a one-time nonce, and the API checks the token contract's own transfer event on chain.
 - **Agent Firewall: Rust contracts on NEAR.** Every payment passes owner-set rules before any token moves: a per-call cap, a daily budget, an allowlist of payees, and a pause switch. The agent's only key is a NEAR **function-call access key** that can call `pay` and nothing else, so even a fully jailbroken agent can only spend within the rules.
 - **Firewall Hub on testnet.** Any NEAR account gets its own budget in one shared contract: sign once, get 5 test USDC, add a pay-only key for the agent.
 - **MCP server.** Claude, Cursor or any MCP client becomes an agent with a budget (`budget`, `list_apis`, `call_api`, `fetch_paid`). The model never holds a key, and when a prompt injection tells it to pay an attacker, the firewall refuses.
@@ -38,7 +38,7 @@ AI agents are starting to pay for APIs, data and compute, usually a cent or two 
 ## What's built and verified
 
 - 3 Rust contracts: `agent-firewall` (single-owner vault, 9 tests), `firewall-hub` (multi-owner budgets + faucet, 13 tests), `test-usdc` (NEP-141), all deployed on testnet (`hub.ali-demo-70052.testnet`).
-- TypeScript: Near6 paywall and verifier (x402 v1 + v2), paying fetch, the app, the MCP server. 54 tests.
+- TypeScript: NEAR paywall and verifier (x402 v1 + v2), paying fetch, the app, the MCP server. 57 tests.
 - End-to-end on NEAR testnet (`scripts/e2e-testnet.ts`), each step a real transaction:
   - A paid call went through over x402 v2.
   - Prompt injection was refused with `ERR_PAYEE_NOT_ALLOWED`.
@@ -66,4 +66,4 @@ To use it from Claude Desktop or Claude Code, see "Use it from a real AI agent (
 
 ## What's next
 
-Propose the Near6 scheme to the x402 spec. Pay in any token through NEAR Intents. Per-payee budgets. Signed (NEP-413) access to the app's API. Run the agent in a TEE on NEAR AI Cloud.
+Propose the NEAR scheme to the x402 spec. Pay in any token through NEAR Intents. Per-payee budgets. Signed (NEP-413) access to the app's API. Run the agent in a TEE on NEAR AI Cloud.

@@ -12,7 +12,7 @@ import {
   type PaymentRequiredV2,
   type PaymentRequirements,
   type SettlementResponse,
-} from "../near6/types.js";
+} from "../protocol/types.js";
 
 export interface PayingFetchOptions {
   ledger: Ledger;
@@ -25,7 +25,7 @@ export interface PayingFetchOptions {
 }
 
 /**
- * A fetch that pays for Near6 resources on its own: on a 402 response it pays
+ * A fetch that pays for NEAR resources on its own: on a 402 response it pays
  * through the agent's firewall vault and retries with the tx hash as proof.
  * If the firewall refuses, the FirewallError propagates to the caller.
  */

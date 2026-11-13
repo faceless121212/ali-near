@@ -5,7 +5,7 @@ import { createApi, USDC } from "../src/api.js";
 import { createPayingFetch, readSettlement } from "../src/client/paying-fetch.js";
 import { MockLedger } from "../src/ledger/mock.js";
 import { FirewallError } from "../src/policy.js";
-import { decodeHeader, encodeHeader, type PaymentRequiredBody, type PaymentRequiredV2 } from "../src/near6/types.js";
+import { decodeHeader, encodeHeader, type PaymentRequiredBody, type PaymentRequiredV2 } from "../src/protocol/types.js";
 
 const ASSET = "usdc.mock.near";
 const VAULT = "bot.agents.alice.near";
@@ -45,12 +45,12 @@ async function payManually(path: string, over: { amount?: bigint; payee?: string
 
 const get = (path: string, proof: string) => fetch(base + path, { headers: { "X-PAYMENT": proof } });
 
-describe("Near6 paywall", () => {
+describe("NEAR paywall", () => {
   it("returns 402 with payment requirements when unpaid", async () => {
     const res = await fetch(`${base}/weather`);
     expect(res.status).toBe(402);
     const body = (await res.json()) as PaymentRequiredBody;
-    expect(body.accepts[0]).toMatchObject({ scheme: "near6", payTo: API, asset: ASSET, maxAmountRequired: "10000" });
+    expect(body.accepts[0]).toMatchObject({ scheme: "near", payTo: API, asset: ASSET, maxAmountRequired: "10000" });
   });
 
   it("pays and unlocks the resource with createPayingFetch", async () => {
@@ -120,7 +120,7 @@ describe("Near6 paywall", () => {
       expect(v2.x402Version).toBe(2);
       expect(v2.resource).toMatchObject({ url: "/weather", mimeType: "application/json" });
       expect(v2.accepts[0]).toEqual({
-        scheme: "near6",
+        scheme: "near",
         network: "near:mock",
         amount: v1.maxAmountRequired,
         asset: ASSET,

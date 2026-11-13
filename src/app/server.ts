@@ -3,7 +3,7 @@
 //   practice  an in-memory wallet everyone shares; instant, no keys
 //   testnet   the visitor's own budget on the Firewall Hub, signed in their NEAR wallet
 //
-// Both run the agent over real Near6 (HTTP 402) against the paid marketplace and
+// Both run the agent over real NEAR (HTTP 402) against the paid marketplace and
 // return every step of each call.
 import type { AddressInfo } from "node:net";
 import { fileURLToPath } from "node:url";

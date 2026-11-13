@@ -1,7 +1,7 @@
 {
   "name": "ali",
   "version": "0.1.0",
-  "description": "Ali: x402-compatible pay-per-call for AI agents on NEAR (Near6 scheme), guarded by an on-chain Agent Firewall, with an MCP server",
+  "description": "Ali: x402-compatible pay-per-call for AI agents on NEAR, guarded by an on-chain Agent Firewall, with an MCP server",
   "type": "module",
   "license": "MIT",
   "scripts": {
