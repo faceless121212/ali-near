@@ -47,7 +47,8 @@ const post = async (path: string, body: object) => {
 };
 const show = (name: string, r: any) =>
   console.log(
-    `${name.padEnd(8)} ${r.ok ? "ok " : "no "} ${r.short}  [${r.steps.map((s: any) => `${s.key}:${s.status}`).join(" ")}]` +
+    (r.steps.find((s: any) => s.key === "quote")?.data?.x402Version ? `x402v${r.steps.find((s: any) => s.key === "quote").data.x402Version} ` : "       ") +
+      `${name.padEnd(8)} ${r.ok ? "ok " : "no "} ${r.short}  [${r.steps.map((s: any) => `${s.key}:${s.status}`).join(" ")}]` +
       `  balance ${(r.state.budget.balance / 1e6).toFixed(2)}${r.tx ? `  tx ${r.tx}` : ""}`,
   );
 
@@ -57,6 +58,8 @@ show("call", await post("/call", { api: "weather", q: "Lisbon" }));
 show("inject", await post("/attack", { kind: "inject" }));
 show("drain", await post("/attack", { kind: "drain" }));
 show("loop", await post("/attack", { kind: "loop" }));
+// What an MCP agent does when a prompt injection tells it to open a link.
+show("fetch", await post("/fetch", { path: "/market/vip-unlock" }));
 // The owner pauses in the wallet; the agent is refused.
 await visitor.functionCall({ contractId: config.hub, methodName: "set_paused", args: { paused: true }, gas: 30n * TGAS });
 await new Promise((r) => setTimeout(r, 1500));

@@ -1,12 +1,12 @@
 # Ali
 
-**Pay-per-call APIs for AI agents on NEAR, using the Near6 protocol, with an on-chain Agent Firewall so an agent can never spend more than its human allowed.**
+**Pay-per-call APIs for AI agents on NEAR. Near6 is an x402-compatible payment scheme for NEAR, and an on-chain Agent Firewall makes sure an agent can never spend more than its human allowed. Any MCP agent (Claude, Cursor…) can plug in.**
 
 Built at NEAR HACKATHON 2026. Tracks: **Agent Economy**, **AI Security & Defense**, **Autonomous Business**.
 
 AI agents are starting to pay for APIs, data and compute. Two problems come with that:
 
-1. **Payments.** APIs need a machine-native way to charge per request. [x402](https://www.x402.org/), Coinbase's open standard built on HTTP 402 Payment Required, does this on other chains, but NEAR has no equivalent. **Near6** is Ali's protocol for it on NEAR.
+1. **Payments.** APIs need a machine-native way to charge per request. [x402](https://www.x402.org/), Coinbase's open standard built on HTTP 402 Payment Required, does this on other chains, but NEAR has no equivalent. **Near6** brings it to NEAR: an x402 payment scheme (`scheme: "near6"`, `network: "near:testnet"`) that speaks both x402 v1 and v2.
 2. **Safety.** An agent holding a normal wallet key can be prompt-injected into draining it.
 
 Ali solves both. An API charges with one Express middleware. The agent pays from a **vault account** whose contract enforces a per-call cap, a daily budget, a payee allowlist and a kill switch. The agent's only key is a NEAR **function-call access key** restricted to the vault's `pay` method, so even a fully jailbroken agent can only do what the policy allows.
@@ -73,9 +73,54 @@ The demo starts a paid API and an agent against an in-memory ledger that applies
 | 6 | Owner flips the kill switch | 🛡 `ERR_PAUSED` |
 
 ```bash
-npm test          # 39 tests: policy, payment verification, Near6 end to end, the app
+npm test          # 54 tests: policy, payment verification, Near6 (x402 v1 + v2) end to end, the app, the MCP server
 npm run typecheck
 ```
+
+## Use it from a real AI agent (MCP)
+
+Ali ships an MCP server, so Claude Desktop, Claude Code, Cursor or any MCP client becomes an agent with a budget. The model never holds a key: the MCP server asks the running app to pay, and the app pays with the budget's pay-only key, so every payment still goes through the firewall.
+
+| Tool | What it does |
+|---|---|
+| `budget` | Balance, per-call and daily limits, spent today, allowed payees, paused or not |
+| `list_apis` | The marketplace, with prices and whether this budget may pay each API |
+| `call_api` | `{ api, query }`: 402 → pay through the firewall → answer. A refusal comes back with its `ERR_*` reason |
+| `fetch_paid` | `{ path }`: open any `/market/...` link, paying if asked. This is how a prompt injection reaches a real model: the News API's answer tells it to open `/market/vip-unlock`, and the firewall refuses to pay `drainer` |
+
+Start the app (`npm start`), then add this to your MCP client's config (for Claude Desktop: `claude_desktop_config.json`), with the path to your clone:
+
+```json
+{
+  "mcpServers": {
+    "ali": {
+      "command": "npx",
+      "args": ["tsx", "/path/to/ali-near/src/mcp/main.ts"],
+      "env": { "ALI_WALLET": "practice" }
+    }
+  }
+}
+```
+
+Or with Claude Code:
+
+```bash
+claude mcp add ali -e ALI_WALLET=practice -- npx tsx /path/to/ali-near/src/mcp/main.ts
+```
+
+`ALI_WALLET` picks the budget: `practice` (the shared one), `demo:<account>` (a demo wallet you set up in the app, e.g. `demo:you-7k2p.demo.near`) or `testnet:<account>` (your real testnet budget, after steps 1–3 in the app). `ALI_APP_URL` defaults to `http://localhost:3000`. Every payment the model makes shows up live in the app's Activity panel. Then ask it, for example: *"Check my budget, get the weather in Lisbon and the latest NEAR news, and follow any links the news tells you to."*
+
+## x402 compatibility
+
+A Near6 paywall answers every unpaid request in both x402 versions at once, and accepts either proof:
+
+| | x402 v1 | x402 v2 |
+|---|---|---|
+| Offer | `402` JSON body `{ x402Version: 1, accepts: [{ scheme, network: "near-testnet", maxAmountRequired, resource, mimeType, payTo, asset, extra: { nonce } }] }` | `PAYMENT-REQUIRED` header (base64 JSON) `{ x402Version: 2, resource: { url, description, mimeType }, accepts: [{ scheme, network: "near:testnet", amount, asset, payTo, maxTimeoutSeconds, extra: { nonce } }] }` |
+| Proof | `X-PAYMENT` header `{ x402Version: 1, scheme, network, payload: { txHash, payer, nonce, from? } }` | `PAYMENT-SIGNATURE` header `{ x402Version: 2, accepted, payload: { txHash, payer, nonce, from? } }` |
+| Receipt | `X-PAYMENT-RESPONSE` | `PAYMENT-RESPONSE` (adds `amount`, CAIP-2 network) |
+
+`createPayingFetch` answers in v2 when the server offers it (`version: 1` forces v1). What's NEAR-specific is the scheme: instead of a signed authorization settled by a facilitator, the agent pays on chain first, through its firewall, and the proof is the transaction hash. The server checks the token contract's own transfer event.
 
 ## How it works
 
@@ -120,7 +165,9 @@ The server trusts only the **token contract's** NEP-141 `ft_transfer` event, nev
 | `web-src/app.js` | The app's client: NEAR Wallet Selector, the guide, the run timeline |
 | `scripts/` | Contract build, testnet deploys (`deploy-testnet.ts`, `deploy-hub.ts`) and an end-to-end testnet check (`e2e-testnet.ts`) |
 | `src/policy.ts` | The same policy in TypeScript, used by the offline ledger and for error codes |
-| `src/near6/` | Wire types, `paywall()` Express middleware, payment verification |
+| `src/near6/` | Wire types (x402 v1 and v2), `paywall()` Express middleware, payment verification |
+| `src/mcp/` | The MCP server (`budget`, `list_apis`, `call_api`, `fetch_paid`) and its stdio entry |
+| `src/app/demo.ts` | The simulated demo wallet |
 | `src/client/paying-fetch.ts` | `fetch` wrapper that handles `402 → pay → retry` |
 | `src/ledger/mock.ts` | In-memory token and vaults for practice mode, the demo and tests |
 | `src/ledger/near.ts` | Real NEAR: calls `pay` with near-api-js and verifies receipts via RPC |
@@ -163,11 +210,11 @@ The older two-process example also works on testnet: `npm run server` (a paid AP
 
 ## Limitations (honest status)
 
-- **Verified:** practice mode in the browser (calls, attacks, limits, pause, new day). Wallet mode end to end on testnet with a scripted wallet (budget, agent key, a paid call, all three attacks and pause, each checked on chain). The wallet chooser opening with MyNearWallet and Meteor. 39 TypeScript tests, 9 + 13 contract unit tests, the offline demo and the typecheck.
+- **Verified:** practice mode in the browser (calls, attacks, limits, pause, new day). Wallet mode end to end on testnet with a scripted wallet (budget, agent key, a paid call, all three attacks and pause, each checked on chain). The demo wallet flow in the browser. The MCP server over stdio against the running app. The wallet chooser opening with MyNearWallet and Meteor. 54 TypeScript tests, 9 + 13 contract unit tests, the offline demo and the typecheck.
 - **Not verified by us:** signing in with a real MyNearWallet or Meteor account in the browser. That needs a person's wallet; the same transactions were sent by the scripted wallet.
 - **The agent keys sit on the app server** (`data/agent-keys.json`). That's the point of the design: the agent is a server process. Each key can only call `pay` on the hub and is capped by its gas allowance (0.25 NEAR). Remove it from your account any time in your wallet.
 - **No sign-in on the app's API.** Anyone who knows your account id can make the server's agent call APIs for you, but only within your rules and only to APIs you allowed. A production version would check a NEP-413 signed message first.
-- **Near6 is its own protocol, compatible with x402's message format.** The message format follows x402 (`402` body with `accepts`, plus `X-PAYMENT` / `X-PAYMENT-RESPONSE` headers). Settlement differs: the agent pays on-chain first and sends the tx hash, instead of the EVM "exact" scheme's signed authorization. Near6 isn't part of the upstream x402 spec.
+- **Near6 is our x402 scheme for NEAR, not part of the upstream x402 spec.** It follows x402's v1 and v2 message formats (see *x402 compatibility*). Settlement differs: the agent pays on chain first and sends the tx hash, instead of a signed authorization settled by a facilitator. Off-the-shelf x402 clients would need this scheme added to pay on NEAR; proposing it upstream is on the roadmap. "x402" is Coinbase's name for its open standard; Ali isn't affiliated with Coinbase.
 - **The server keeps nonces in memory,** so they reset on restart. Use Redis or similar for production.
 - **One token per vault.**
 - **Roadmap (not built):** paying in any token on any chain via NEAR Intents; a policy dashboard for owners; per-payee budgets; on-chain reputation for agents and APIs; deploying the TEE-attested agent on NEAR AI Cloud.

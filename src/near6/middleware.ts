@@ -2,14 +2,21 @@ import { randomBytes } from "node:crypto";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import type { Ledger } from "../ledger/types.js";
 import {
+  caip2,
   decodeHeader,
   encodeHeader,
+  fromV2Payload,
   SCHEME,
   PROTOCOL_VERSION,
+  toV2,
+  X402_V2,
   type PaymentPayload,
+  type PaymentPayloadV2,
   type PaymentRequiredBody,
+  type PaymentRequiredV2,
   type PaymentRequirements,
   type SettlementResponse,
+  type SettlementResponseV2,
 } from "./types.js";
 import { verifyPayment } from "./verify.js";
 
@@ -30,20 +37,23 @@ interface Pending {
 /**
  * Express middleware that charges per request. Each 402 issues a fresh nonce,
  * and each nonce can unlock exactly one response, which blocks replaying a tx hash.
+ * It speaks x402 v1 (body + X-PAYMENT) and v2 (PAYMENT-REQUIRED / PAYMENT-SIGNATURE).
  */
 export function paywall(opts: PaywallOptions): RequestHandler {
   const pending = new Map<string, Pending>();
   const timeout = opts.maxTimeoutSeconds ?? 120;
 
   return async (req: Request, res: Response, next: NextFunction) => {
-    const header = req.header("X-PAYMENT");
-    if (!header) return paymentRequired(res, issue(req), "X-PAYMENT header is required");
+    const v2 = req.header("PAYMENT-SIGNATURE");
+    const header = v2 ?? req.header("X-PAYMENT");
+    if (!header) return paymentRequired(res, issue(req), "payment required: send X-PAYMENT (x402 v1) or PAYMENT-SIGNATURE (x402 v2)");
 
     let payment: PaymentPayload;
     try {
-      payment = decodeHeader<PaymentPayload>(header);
+      payment = v2 ? fromV2Payload(decodeHeader<PaymentPayloadV2>(v2)) : decodeHeader<PaymentPayload>(header);
+      if (v2 && decodeHeader<PaymentPayloadV2>(v2).x402Version !== X402_V2) throw new Error("version");
     } catch {
-      return paymentRequired(res, issue(req), "malformed X-PAYMENT header");
+      return paymentRequired(res, issue(req), "malformed payment header");
     }
 
     const entry = pending.get(payment.payload?.nonce);
@@ -67,7 +77,9 @@ export function paywall(opts: PaywallOptions): RequestHandler {
       network: opts.ledger.network,
       payer: payment.payload.payer,
     };
+    const settlementV2: SettlementResponseV2 = { ...settlement, network: caip2(settlement.network), amount: entry.req.maxAmountRequired };
     res.setHeader("X-PAYMENT-RESPONSE", encodeHeader(settlement));
+    res.setHeader("PAYMENT-RESPONSE", encodeHeader(settlementV2));
     next();
   };
 
@@ -79,6 +91,7 @@ export function paywall(opts: PaywallOptions): RequestHandler {
       maxAmountRequired: opts.price.toString(),
       resource: req.originalUrl,
       description: opts.description,
+      mimeType: "application/json",
       payTo: opts.payTo,
       asset: opts.asset,
       maxTimeoutSeconds: timeout,
@@ -91,5 +104,13 @@ export function paywall(opts: PaywallOptions): RequestHandler {
 
 function paymentRequired(res: Response, requirements: PaymentRequirements, error: string) {
   const body: PaymentRequiredBody = { x402Version: PROTOCOL_VERSION, error, accepts: [requirements] };
+  const v2: PaymentRequiredV2 = {
+    x402Version: X402_V2,
+    error,
+    resource: { url: requirements.resource, description: requirements.description, mimeType: requirements.mimeType },
+    accepts: [toV2(requirements)],
+  };
+  res.setHeader("PAYMENT-REQUIRED", encodeHeader(v2));
+  res.setHeader("Access-Control-Expose-Headers", "PAYMENT-REQUIRED, PAYMENT-RESPONSE, X-PAYMENT-RESPONSE");
   res.status(402).json(body);
 }

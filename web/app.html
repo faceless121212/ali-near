@@ -498,7 +498,7 @@ dialog::backdrop { background: rgba(11, 5, 29, 0.45); backdrop-filter: blur(2px)
         <p>Every Call or attack fills this panel. The coloured box at the top says in plain words what happened. Below it are the steps:</p>
         <ol>
           <li><b>Agent asks the API</b>: a normal web request.</li>
-          <li><b>402 Payment Required</b>: the API answers "pay first". HTTP 402 is the web's built-in "payment required" code. The box shows the price (in millionths of a USDC), who to pay, and a one-time <i>nonce</i> code.</li>
+          <li><b>402 Payment Required</b>: the API answers "pay first". HTTP 402 is the web's built-in "payment required" code, and the message follows <b>x402</b>, the open standard for this, in its v2 format. The box shows the price (in millionths of a USDC), who to pay, and a one-time <i>nonce</i> code.</li>
           <li><b>Firewall checks the rules</b>: each rule with ✓ or ✗ and the numbers it compared.</li>
           <li><b>Wallet pays</b>: the budget sends USDC to the API, with the nonce attached.</li>
           <li><b>API checks the payment</b>: the API looks up the payment and checks the nonce, so a payment can't be reused.</li>
@@ -529,7 +529,9 @@ dialog::backdrop { background: rgba(11, 5, 29, 0.45); backdrop-filter: blur(2px)
           <dt>Transaction (tx)</dt><dd>One recorded action on the blockchain, with an id you can look up.</dd>
           <dt>Gas</dt><dd>The tiny fee in NEAR for running a transaction.</dd>
           <dt>Nonce</dt><dd>A one-time code linking a payment to one request, so it can't be reused.</dd>
-          <dt>Near6</dt><dd>Ali's pay-per-call protocol: HTTP 402 + a NEAR token payment + a proof header.</dd>
+          <dt>x402</dt><dd>An open standard (published by Coinbase) for paying for a web request: the server answers 402 with a price, the client pays and retries with proof.</dd>
+          <dt>Near6</dt><dd>Ali's x402 payment scheme for NEAR: the agent pays on chain through its firewall, and the proof is the transaction id.</dd>
+          <dt>MCP</dt><dd>Model Context Protocol, how AI apps like Claude plug into tools. Ali's MCP server lets a real AI agent spend from this budget (see the README).</dd>
         </dl>
       </section>
 

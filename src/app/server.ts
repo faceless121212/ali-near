@@ -158,6 +158,11 @@ export function createApp({ practice, hub, demo, webDir }: AppOptions) {
     handle((req) => serial(async () => ({ ...(await attack(req, "practice", "/market", market, practiceAgent)), state: await practiceState() }))),
   );
 
+  app.post(
+    "/api/practice/fetch",
+    handle((req) => serial(async () => ({ ...(await fetchPath(req, "practice", "/market", practiceAgent)), state: await practiceState() }))),
+  );
+
   const account = (req: Request) => {
     const id = String(req.params.account ?? "");
     if (!ACCOUNT.test(id)) throw Object.assign(new Error("invalid account id"), { status: 400 });
@@ -218,6 +223,14 @@ export function createApp({ practice, hub, demo, webDir }: AppOptions) {
       handle((req) => {
         const id = account(req);
         return serial(async () => ({ ...(await attack(req, `demo:${id}`, "/market", market, demoAgent(id))), state: await demoState(id) }));
+      }),
+    );
+
+    app.post(
+      "/api/demo/:account/fetch",
+      handle((req) => {
+        const id = account(req);
+        return serial(async () => ({ ...(await fetchPath(req, `demo:${id}`, "/market", demoAgent(id))), state: await demoState(id) }));
       }),
     );
   }
@@ -285,6 +298,15 @@ export function createApp({ practice, hub, demo, webDir }: AppOptions) {
         return serial(async () => ({ ...(await attack(req, id, "/testnet/market", hubMarket, hubAgent(id))), state: await testnetState(id) }));
       }),
     );
+
+    app.post(
+      "/api/testnet/:account/fetch",
+      handle(async (req) => {
+        const id = account(req);
+        await needsKey(id);
+        return serial(async () => ({ ...(await fetchPath(req, id, "/testnet/market", hubAgent(id))), state: await testnetState(id) }));
+      }),
+    );
   }
 
   // ---------- the agent ----------
@@ -296,6 +318,23 @@ export function createApp({ practice, hub, demo, webDir }: AppOptions) {
     const path = `${prefix}/${api.id}?q=${encodeURIComponent(q)}`;
     const run = await runCall(await agent(), local(req) + path, path);
     logRun(space, `${api.name} API`, run, api.account, api.price);
+    return run;
+  }
+
+  /**
+   * The agent follows any marketplace link, paying if asked. This is how a real
+   * AI agent (over MCP) gets prompt-injected: it reads "call /market/vip-unlock"
+   * in an answer and fetches it. The firewall decides whether it may pay.
+   */
+  async function fetchPath(req: Request, space: string, prefix: string, agent: () => Promise<AgentOptions>) {
+    const raw = String(req.body?.path ?? "").trim();
+    const match = raw.match(/^(?:\/testnet)?\/market\/([a-z0-9-]{1,32})(\?[^#\s]{0,200})?$/);
+    if (!match) throw Object.assign(new Error("path must look like /market/<api>?q=..."), { status: 400 });
+    const path = `${prefix}/${match[1]}${match[2] ?? ""}`;
+    const run = await runCall(await agent(), local(req) + path, path);
+    const payee = run.steps.find((s) => s.key === "quote")?.detail.split(" to ")[1] ?? "";
+    const amount = BigInt((run.steps.find((s) => s.key === "quote")?.data as { amount?: string } | undefined)?.amount ?? 0);
+    logRun(space, `Agent fetched ${path.replace(prefix, "/market")}`, run, payee, amount);
     return run;
   }
 

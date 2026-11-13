@@ -1,7 +1,17 @@
 // The demo agent. It does what createPayingFetch does (402 → pay → retry) but
 // records every step, so the app can show the whole Near6 handshake.
 import type { Ledger } from "../ledger/types.js";
-import { encodeHeader, PROTOCOL_VERSION, SCHEME, type PaymentPayload, type PaymentRequiredBody } from "../near6/types.js";
+import {
+  decodeHeader,
+  encodeHeader,
+  PROTOCOL_VERSION,
+  SCHEME,
+  X402_V2,
+  type PaymentPayload,
+  type PaymentPayloadV2,
+  type PaymentRequiredBody,
+  type PaymentRequiredV2,
+} from "../near6/types.js";
 import { FirewallError, type FirewallCode, type Policy } from "../policy.js";
 
 /** The wallet as the agent sees it just before paying. */
@@ -110,27 +120,33 @@ export async function runCall(opts: AgentOptions, url: string, label: string): P
     return { ok: first.ok, short: first.ok ? "Free answer" : `Failed: HTTP ${first.status}`, steps, result: body };
   }
 
-  const quote = ((await first.json()) as PaymentRequiredBody).accepts[0];
-  const amount = BigInt(quote.maxAmountRequired);
+  // Prefer x402 v2 (PAYMENT-REQUIRED header); fall back to the v1 body.
+  const v2Header = first.headers.get("PAYMENT-REQUIRED");
+  const v2 = v2Header ? decodeHeader<PaymentRequiredV2>(v2Header) : null;
+  const v1 = v2 ? null : ((await first.json()) as PaymentRequiredBody).accepts[0];
+  const offer = v2 ? v2.accepts[0] : null;
+  const payTo = offer?.payTo ?? v1!.payTo;
+  const nonce = offer?.extra.nonce ?? v1!.extra.nonce;
+  const amount = BigInt(offer?.amount ?? v1!.maxAmountRequired);
   steps.push({
     key: "quote",
     title: "402 Payment Required",
     status: "ok",
-    detail: `${fmt(amount)} USDC to ${quote.payTo}`,
+    detail: `${fmt(amount)} USDC to ${payTo}`,
     ms: 0,
-    data: { scheme: quote.scheme, network: quote.network, payTo: quote.payTo, amount: quote.maxAmountRequired, asset: quote.asset, nonce: quote.extra.nonce },
+    data: offer
+      ? { x402Version: X402_V2, scheme: offer.scheme, network: offer.network, payTo, amount: offer.amount, asset: offer.asset, nonce }
+      : { x402Version: PROTOCOL_VERSION, scheme: v1!.scheme, network: v1!.network, payTo, amount: v1!.maxAmountRequired, asset: v1!.asset, nonce },
   });
 
-  const paid = await pay(opts, steps, quote.payTo, amount, quote.extra.nonce, lap);
+  const paid = await pay(opts, steps, payTo, amount, nonce, lap);
   if (!paid.ok) return paid.run;
 
-  const proof: PaymentPayload = {
-    x402Version: PROTOCOL_VERSION,
-    scheme: SCHEME,
-    network: quote.network,
-    payload: { txHash: paid.tx, payer: opts.vault, nonce: quote.extra.nonce, from: opts.ledger.fundsHolder },
-  };
-  const second = await fetch(url, { headers: { "X-PAYMENT": encodeHeader(proof) } });
+  const proofPayload = { txHash: paid.tx, payer: opts.vault, nonce, from: opts.ledger.fundsHolder };
+  const headers: Record<string, string> = offer
+    ? { "PAYMENT-SIGNATURE": encodeHeader({ x402Version: X402_V2, resource: v2!.resource, accepted: offer, payload: proofPayload } satisfies PaymentPayloadV2) }
+    : { "X-PAYMENT": encodeHeader({ x402Version: PROTOCOL_VERSION, scheme: SCHEME, network: v1!.network, payload: proofPayload } satisfies PaymentPayload) };
+  const second = await fetch(url, { headers });
   const body = await second.json().catch(() => null);
   if (!second.ok) {
     steps.push({ key: "verify", title: "API checks the payment", status: "no", detail: `HTTP ${second.status}: ${body?.error ?? "rejected"}`, ms: lap() });
@@ -179,7 +195,7 @@ async function pay(opts: AgentOptions, steps: Step[], payee: string, amount: big
       key: "checks",
       title: "Firewall checks the rules",
       status: "no",
-      detail: `Refused: ${err.code}${failed ? ` (${failed.label.toLowerCase()})` : ""}`,
+      detail: `Refused: ${err.code}${failed ? `, failed check "${failed.label}"` : ""}`,
       ms: lap(),
       checks: failed ? marked : [...marked, { key: err.code, label: "Budget exists", ok: false, detail: err.code }],
     });

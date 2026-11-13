@@ -9,6 +9,7 @@ const req: PaymentRequirements = {
   scheme: "near6",
   network: "near-testnet",
   maxAmountRequired: "10000",
+  mimeType: "application/json",
   resource: "/weather",
   description: "",
   payTo: "api.testnet",

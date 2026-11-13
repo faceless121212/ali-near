@@ -1,7 +1,7 @@
 {
   "name": "ali",
   "version": "0.1.0",
-  "description": "Ali: pay-per-call APIs for AI agents on NEAR (Near6 protocol), guarded by an on-chain Agent Firewall",
+  "description": "Ali: x402-compatible pay-per-call for AI agents on NEAR (Near6 scheme), guarded by an on-chain Agent Firewall, with an MCP server",
   "type": "module",
   "license": "MIT",
   "scripts": {
@@ -9,6 +9,7 @@
     "demo": "tsx src/demo.ts",
     "server": "tsx src/examples/server.ts",
     "agent": "tsx src/examples/agent.ts",
+    "mcp": "tsx src/mcp/main.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build:contracts": "sh scripts/build-contracts.sh",
@@ -17,8 +18,10 @@
     "build:web": "esbuild web-src/app.js --bundle --format=esm --minify --platform=browser --target=es2022 --define:global=globalThis --outfile=web/app.js"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "express": "^4.22.3",
-    "near-api-js": "^5.1.1"
+    "near-api-js": "^5.1.1",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@near-wallet-selector/core": "^10.1.4",

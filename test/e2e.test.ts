@@ -5,7 +5,7 @@ import { createApi, USDC } from "../src/api.js";
 import { createPayingFetch, readSettlement } from "../src/client/paying-fetch.js";
 import { MockLedger } from "../src/ledger/mock.js";
 import { FirewallError } from "../src/policy.js";
-import { encodeHeader, type PaymentRequiredBody } from "../src/near6/types.js";
+import { decodeHeader, encodeHeader, type PaymentRequiredBody, type PaymentRequiredV2 } from "../src/near6/types.js";
 
 const ASSET = "usdc.mock.near";
 const VAULT = "bot.agents.alice.near";
@@ -109,5 +109,69 @@ describe("Near6 paywall", () => {
     const fetchPaid = createPayingFetch({ ledger, vault: poor, acceptAssets: [ASSET] });
     expect((await fetchPaid(`${base}/weather`)).status).toBe(402);
     expect(ledger.spentToday(poor)).toBe(0n);
+  });
+
+  describe("x402 v2", () => {
+    it("advertises the same offer in a PAYMENT-REQUIRED header with a CAIP-2 network", async () => {
+      const res = await fetch(`${base}/weather`);
+      expect(res.status).toBe(402);
+      const v2 = decodeHeader<PaymentRequiredV2>(res.headers.get("PAYMENT-REQUIRED")!);
+      const v1 = ((await res.json()) as PaymentRequiredBody).accepts[0];
+      expect(v2.x402Version).toBe(2);
+      expect(v2.resource).toMatchObject({ url: "/weather", mimeType: "application/json" });
+      expect(v2.accepts[0]).toEqual({
+        scheme: "near6",
+        network: "near:mock",
+        amount: v1.maxAmountRequired,
+        asset: ASSET,
+        payTo: API,
+        maxTimeoutSeconds: v1.maxTimeoutSeconds,
+        extra: { nonce: v1.extra.nonce },
+      });
+    });
+
+    it("pays with PAYMENT-SIGNATURE and gets PAYMENT-RESPONSE", async () => {
+      const used: string[] = [];
+      const realFetch = globalThis.fetch;
+      const spy = vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+        const h = new Headers(init?.headers);
+        if (h.has("PAYMENT-SIGNATURE")) used.push("v2");
+        if (h.has("X-PAYMENT")) used.push("v1");
+        return realFetch(input, init);
+      });
+      const fetchPaid = createPayingFetch({ ledger, vault: VAULT, acceptAssets: [ASSET] });
+      const res = await fetchPaid(`${base}/weather?city=Kyiv`);
+      spy.mockRestore();
+      expect(res.status).toBe(200);
+      expect(used).toEqual(["v2"]);
+      const settlement = decodeHeader<{ success: boolean; network: string; amount: string }>(res.headers.get("PAYMENT-RESPONSE")!);
+      expect(settlement).toMatchObject({ success: true, network: "near:mock", amount: "10000" });
+      expect(readSettlement(res)?.success).toBe(true);
+    });
+
+    it("still pays over v1 when asked", async () => {
+      const fetchPaid = createPayingFetch({ ledger, vault: VAULT, acceptAssets: [ASSET], version: 1 });
+      const res = await fetchPaid(`${base}/weather`);
+      expect(res.status).toBe(200);
+      expect(res.headers.get("X-PAYMENT-RESPONSE")).toBeTruthy();
+    });
+
+    it("rejects a v2 proof whose nonce was already used", async () => {
+      const first = await fetch(`${base}/weather`);
+      const v2 = decodeHeader<PaymentRequiredV2>(first.headers.get("PAYMENT-REQUIRED")!);
+      const accepted = v2.accepts[0];
+      const txHash = await ledger.pay({ vault: VAULT, payee: accepted.payTo, amount: BigInt(accepted.amount), memo: accepted.extra.nonce });
+      const proof = encodeHeader({ x402Version: 2, accepted, payload: { txHash, payer: VAULT, nonce: accepted.extra.nonce } });
+      const ok = await fetch(`${base}/weather`, { headers: { "PAYMENT-SIGNATURE": proof } });
+      expect(ok.status).toBe(200);
+      const again = await fetch(`${base}/weather`, { headers: { "PAYMENT-SIGNATURE": proof } });
+      expect(again.status).toBe(402);
+    });
+
+    it("rejects a malformed v2 header", async () => {
+      const res = await fetch(`${base}/weather`, { headers: { "PAYMENT-SIGNATURE": "not-base64-json" } });
+      expect(res.status).toBe(402);
+      expect(((await res.json()) as { error: string }).error).toMatch(/malformed/);
+    });
   });
 });
